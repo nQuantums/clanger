@@ -22,8 +22,14 @@ namespace ClangerConsole {
 			};
 
 			var a = new Analyzer();
+
 			a.Parse(
-				@"../../../sample.cpp",
+				@"../../../sample1.cpp",
+				includeDirs,
+				additionalOptions);
+
+			a.Parse(
+				@"../../../sample2.cpp",
 				includeDirs,
 				additionalOptions);
 		}

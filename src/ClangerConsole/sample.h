@@ -1,0 +1,3 @@
+﻿struct Struct1 {
+
+};

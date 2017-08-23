@@ -7,7 +7,7 @@ using ClangSharp;
 using System.Runtime.InteropServices;
 
 namespace ClangerConsole {
-	public class Analyzer {
+	public class Analyzer : IDisposable {
 		const string NameScopeDelimiter = "::";
 
 		#region PInvokes
@@ -18,6 +18,70 @@ namespace ClangerConsole {
 		#endregion
 
 		#region クラスなど
+		public struct TranslationUnitKey {
+			public CXTranslationUnit TU;
+
+			public TranslationUnitKey(CXTranslationUnit tu) {
+				this.TU = tu;
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is TranslationUnitKey)
+					return (TranslationUnitKey)obj == this;
+				return base.Equals(obj);
+			}
+
+			public override int GetHashCode() {
+				return this.TU.Pointer.GetHashCode();
+			}
+
+			public static bool operator ==(TranslationUnitKey a, TranslationUnitKey b) {
+				return a.TU.Pointer == b.TU.Pointer;
+			}
+
+			public static bool operator !=(TranslationUnitKey a, TranslationUnitKey b) {
+				return a.TU.Pointer != b.TU.Pointer;
+			}
+		}
+
+		public struct EntityKey {
+			public CXSourceLocation Loc;
+
+			public EntityKey(CXSourceLocation loc) {
+				this.Loc = loc;
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is EntityKey)
+					return (EntityKey)obj == this;
+				return base.Equals(obj);
+			}
+
+			public override int GetHashCode() {
+				return this.Loc.ptr_data0.GetHashCode() ^ this.Loc.ptr_data1.GetHashCode() ^ this.Loc.int_data.GetHashCode();
+			}
+
+			public static bool operator ==(EntityKey a, EntityKey b) {
+				if (a.Loc.ptr_data0 != b.Loc.ptr_data0)
+					return false;
+				if (a.Loc.ptr_data1 != b.Loc.ptr_data1)
+					return false;
+				if (a.Loc.int_data != b.Loc.int_data)
+					return false;
+				return true;
+			}
+
+			public static bool operator !=(EntityKey a, EntityKey b) {
+				if (a.Loc.ptr_data0 != b.Loc.ptr_data0)
+					return true;
+				if (a.Loc.ptr_data1 != b.Loc.ptr_data1)
+					return true;
+				if (a.Loc.int_data != b.Loc.int_data)
+					return true;
+				return false;
+			}
+		}
+
 		public struct TypeKey {
 			public IntPtr data0;
 			public IntPtr data1;
@@ -163,7 +227,10 @@ namespace ClangerConsole {
 			public CXCursor Cursor;
 			public ScopePath ParentPath;
 
-			public Location Location => new Location(this.Cursor);
+			public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
+			public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
+			public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
+			public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
 
 			public Entity(CXCursor cursor, ScopePath parentPath) {
 				this.Cursor = cursor;
@@ -322,13 +389,22 @@ namespace ClangerConsole {
 		}
 		#endregion
 
-		Dictionary<CursorKey, Entity> _Entities = new Dictionary<CursorKey, Entity>();
+		CXIndex _Index;
+		Dictionary<string, CXTranslationUnit> _TranslationUnits = new Dictionary<string, CXTranslationUnit>();
+		Dictionary<EntityKey, Entity> _Entities = new Dictionary<EntityKey, Entity>();
 		ScopePath _ScopePath = new ScopePath();
 		Dictionary<TypeKey, Type> _Types = new Dictionary<TypeKey, Type>();
 
 		#region 公開メソッド
+		public Analyzer() {
+			_Index = clang.createIndex(0, 1);
+		}
+
 		public void Parse(string sourceFile, string[] includeDirs = null, string[] additionalOptions = null, bool msCompati = true) {
-			var index = clang.createIndex(1, 1);
+			var fullPath = System.IO.Path.GetFullPath(sourceFile.ToLower());
+			if (_TranslationUnits.ContainsKey(fullPath))
+				return;
+
 			var ufile = new CXUnsavedFile();
 			var tu = new CXTranslationUnit();
 			var options = new List<string>(new string[] { "-std=c++11", "-ferror-limit=9999" });
@@ -348,13 +424,16 @@ namespace ClangerConsole {
 				options.Add("-fms-compatibility");
 			}
 
-			var erro = clang.parseTranslationUnit2(index, sourceFile, options.ToArray(), options.Count, out ufile, 0, 0, out tu);
+			var erro = clang.parseTranslationUnit2(_Index, sourceFile, options.ToArray(), options.Count, out ufile, 0, 0, out tu);
 			var diags = Diagnostic.CreateFrom(tu);
 
 			// 本当はここでエラーチェックが好ましい
 			var cursor = clang.getTranslationUnitCursor(tu);
 
 			clang.visitChildren(cursor, this.VisitChild, new CXClientData());
+
+
+			_TranslationUnits[fullPath] = tu;
 		}
 		#endregion
 
@@ -363,8 +442,8 @@ namespace ClangerConsole {
 			cursor = clang.getCanonicalCursor(cursor);
 
 			Entity ent;
-			var ckey = new CursorKey(cursor);
-			if (_Entities.TryGetValue(ckey, out ent))
+			var ekey = new EntityKey(clang.getCursorLocation(cursor));
+			if (_Entities.TryGetValue(ekey, out ent))
 				return ent as Type;
 
 			var type = clang.getCursorType(cursor);
@@ -373,7 +452,7 @@ namespace ClangerConsole {
 			var tkey = new TypeKey(type);
 			var typeEnt = new Type(cursor, _ScopePath.Clone(), type);
 
-			_Entities[ckey] = typeEnt;
+			_Entities[ekey] = typeEnt;
 			_Types[tkey] = typeEnt;
 
 			return typeEnt;
@@ -387,13 +466,13 @@ namespace ClangerConsole {
 			cursor = clang.getCanonicalCursor(cursor);
 
 			Entity ent;
-			var ckey = new CursorKey(cursor);
-			if (_Entities.TryGetValue(ckey, out ent))
+			var ekey = new EntityKey(clang.getCursorLocation(cursor));
+			if (_Entities.TryGetValue(ekey, out ent))
 				return ent as Variable;
 
 			var varEnt = new Variable(cursor, _ScopePath.Clone());
 
-			_Entities[ckey] = varEnt;
+			_Entities[ekey] = varEnt;
 
 			return varEnt;
 		}
@@ -460,6 +539,40 @@ namespace ClangerConsole {
 			}
 
 			return CXChildVisitResult.CXChildVisit_Recurse;
+		}
+		#endregion
+
+		#region IDisposable Support
+		private bool disposedValue = false; // 重複する呼び出しを検出するには
+
+		protected virtual void Dispose(bool disposing) {
+			if (!disposedValue) {
+				if (disposing) {
+					// TODO: マネージ状態を破棄します (マネージ オブジェクト)。
+				}
+
+				// TODO: アンマネージ リソース (アンマネージ オブジェクト) を解放し、下のファイナライザーをオーバーライドします。
+				// TODO: 大きなフィールドを null に設定します。
+				foreach(var tu in _TranslationUnits.Values) {
+					clang.disposeTranslationUnit(tu);
+				}
+				_TranslationUnits.Clear();
+				clang.disposeIndex(_Index);
+
+				disposedValue = true;
+			}
+		}
+
+		~Analyzer() {
+			// このコードを変更しないでください。クリーンアップ コードを上の Dispose(bool disposing) に記述します。
+			Dispose(false);
+		}
+
+		// このコードは、破棄可能なパターンを正しく実装できるように追加されました。
+		public void Dispose() {
+			// このコードを変更しないでください。クリーンアップ コードを上の Dispose(bool disposing) に記述します。
+			Dispose(true);
+			GC.SuppressFinalize(this);
 		}
 		#endregion
 	}

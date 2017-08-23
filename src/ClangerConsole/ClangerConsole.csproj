@@ -76,7 +76,9 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="sample.cpp" />
+    <Content Include="sample1.cpp" />
+    <Content Include="sample.h" />
+    <Content Include="sample2.cpp" />
     <Content Include="x64\libclang.dll" />
     <Content Include="x86\libclang.dll" />
   </ItemGroup>
