@@ -119,14 +119,10 @@ namespace ClangerConsole {
 		}
 
 		public struct CursorKey {
-			public IntPtr data0;
-			public IntPtr data1;
-			public IntPtr data2;
+			public CXCursor Cursor;
 
 			public CursorKey(CXCursor c) {
-				this.data0 = c.data0;
-				this.data1 = c.data1;
-				this.data2 = c.data2;
+				this.Cursor = c;
 			}
 
 			public override bool Equals(object obj) {
@@ -136,41 +132,88 @@ namespace ClangerConsole {
 			}
 
 			public override int GetHashCode() {
-				return this.data0.GetHashCode() ^ this.data1.GetHashCode() ^ this.data2.GetHashCode();
+				return this.Cursor.data0.GetHashCode() ^ this.Cursor.GetHashCode() ^ this.Cursor.GetHashCode();
 			}
 
 			public static bool operator ==(CursorKey a, CursorKey b) {
-				if (a.data0 != b.data0)
+				if (a.Cursor.data0 != b.Cursor.data0)
 					return false;
-				if (a.data1 != b.data1)
+				if (a.Cursor.data1 != b.Cursor.data1)
 					return false;
-				if (a.data2 != b.data2)
+				if (a.Cursor.data2 != b.Cursor.data2)
 					return false;
 				return true;
 			}
 
 			public static bool operator !=(CursorKey a, CursorKey b) {
-				if (a.data0 != b.data0)
+				if (a.Cursor.data0 != b.Cursor.data0)
 					return true;
-				if (a.data1 != b.data1)
+				if (a.Cursor.data1 != b.Cursor.data1)
 					return true;
-				if (a.data2 != b.data2)
+				if (a.Cursor.data2 != b.Cursor.data2)
 					return true;
 				return false;
 			}
 		}
 
-		public enum ScopeKind {
-			File,
-			Namespace,
-			Class,
-			Function,
-			Block,
+		public class File {
+			public string FullName;
+			public Dictionary<Position, Entity> Entities = new Dictionary<Position, Entity>();
+
+			public File(string fullName) {
+				this.FullName = fullName;
+			}
 		}
 
-		public class NamedItem {
+		public class FileContainer {
+			Dictionary<string, File> _FilesDic = new Dictionary<string, File>();
+
+			public FileContainer() {
+			}
+
+			public File ChildFile(string fileName) {
+				var fullName = System.IO.Path.GetFullPath(fileName).ToLower();
+				File file;
+				if (_FilesDic.TryGetValue(fullName, out file))
+					return file;
+				file = new File(fullName);
+				_FilesDic[fullName] = file;
+				return file;
+			}
+		}
+
+		[StructLayout(LayoutKind.Explicit)]
+		public struct Position {
+			[FieldOffset(0)]
+			public uint Line;
+			[FieldOffset(4)]
+			public uint Column;
+			[FieldOffset(0)]
+			public ulong Value;
+
+			public override int GetHashCode() {
+				return this.Value.GetHashCode();
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is Position)
+					return (Position)obj == this;
+				return base.Equals(obj);
+			}
+
+			public static bool operator ==(Position a, Position b) {
+				return a.Value == b.Value;
+			}
+
+			public static bool operator !=(Position a, Position b) {
+				return a.Value != b.Value;
+			}
+		}
+
+		public class Scope {
 			public Scope Parent;
 			public string Name;
+			public Dictionary<string, Scope> Children;
 
 			public string FullName {
 				get {
@@ -185,9 +228,9 @@ namespace ClangerConsole {
 				}
 			}
 
-			public NamedItem[] Path {
+			public Scope[] Path {
 				get {
-					var path = new List<NamedItem>();
+					var path = new List<Scope>();
 					var ni = this;
 					do {
 						path.Add(ni);
@@ -198,56 +241,165 @@ namespace ClangerConsole {
 				}
 			}
 
-			public NamedItem(Scope parent, string name) {
+			public Scope(Scope parent, string name) {
 				this.Parent = parent;
 				this.Name = name;
 			}
+
+			protected static Namespace ChildNamespace(Scope parent, string name) {
+				if (parent.Children == null)
+					parent.Children = new Dictionary<string, Scope>();
+				Scope s;
+				Namespace ns;
+				if (parent.Children.TryGetValue(name, out s)) {
+					ns = s as Namespace;
+					if (ns == null)
+						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", s.GetType().Name, " vs Namespace"));
+					return ns;
+				}
+				ns = new Namespace(parent, name);
+				parent.Children[name] = ns;
+				return ns;
+			}
+
+			protected static Type ChildType(Scope parent, File file, string name, CXCursor cursor) {
+				if (parent.Children == null)
+					parent.Children = new Dictionary<string, Scope>();
+				Scope s;
+				Type type;
+				if (parent.Children.TryGetValue(name, out s)) {
+					type = s as Type;
+					if (type == null)
+						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", s.GetType().Name, " vs Type"));
+					type.Cursors.Add(new CursorKey(cursor));
+					return type;
+				}
+				type = new Type(parent, file, name, cursor);
+				parent.Children[name] = type;
+				return type;
+			}
+
+			protected static Variable ChildVariable(Scope parent, File file, string name, CXCursor cursor) {
+				if (parent.Children == null)
+					parent.Children = new Dictionary<string, Scope>();
+				Scope s;
+				Variable variable;
+				if (parent.Children.TryGetValue(name, out s)) {
+					variable = s as Variable;
+					if (variable == null)
+						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", s.GetType().Name, " vs Variable"));
+					variable.Cursors.Add(new CursorKey(cursor));
+					return variable;
+				}
+				variable = new Variable(parent, file, name, cursor);
+				parent.Children[name] = variable;
+				return variable;
+			}
+
+			protected static Function ChildFunction(Scope parent, File file, string name, CXCursor cursor) {
+				if (parent.Children == null)
+					parent.Children = new Dictionary<string, Scope>();
+				Scope s;
+				Function function;
+				if (parent.Children.TryGetValue(name, out s)) {
+					function = s as Function;
+					if (function == null)
+						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", s.GetType().Name, " vs Function"));
+					function.Cursors.Add(new CursorKey(cursor));
+					return function;
+				}
+				function = new Function(parent, file, name, cursor);
+				parent.Children[name] = function;
+				return function;
+			}
 		}
 
-		public class Entity : NamedItem {
-			CXCursor Cursor;
-
-			public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
-			public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
-			public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
-			public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
-
-			public Entity(Scope parent, string name, CXCursor cursor)
+		public class Namespace : Scope {
+			public Namespace(Scope parent, string name)
 				: base(parent, name) {
 				this.Parent = parent;
 				this.Name = name;
-				this.Cursor = cursor;
+			}
+
+			public Namespace ChildNamespace(string name) => ChildNamespace(this, name);
+			public Type ChildType(File file, string name, CXCursor cursor) => ChildType(this, file, name, cursor);
+			public Variable ChildVariable(File file, string name, CXCursor cursor) => ChildVariable(this, file, name, cursor);
+			public Function ChildFunction(File file, string name, CXCursor cursor) => ChildFunction(this, file, name, cursor);
+		}
+
+		public class Entity : Scope {
+			public File File;
+			public HashSet<CursorKey> Cursors = new HashSet<CursorKey>();
+
+			public Location ExpansionLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Expansion);
+			public Location PresumedLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Presumed);
+			public Location SpellingLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Spelling);
+			public Location FileLocation => new Location(this.Cursors.First().Cursor, Location.Kind.File);
+
+			public Entity(Scope parent, File file, string name, CXCursor cursor)
+				: base(parent, name) {
+				this.File = file;
+				this.Cursors.Add(new CursorKey(cursor));
 			}
 		}
 
-		public class Scope : NamedItem {
-			public Dictionary<string, NamedItem> Children;
-			public ScopeKind Kind;
+		public class Type : Entity {
+			public CXType ClangType => clang.getCursorType(this.Cursors.First().Cursor);
+			public CXType Canonical => clang.getCanonicalType(this.ClangType);
+			public long AlignOf => clang.Type_getAlignOf(this.ClangType);
+			public CXType ClassType => clang.Type_getClassType(this.ClangType);
+			public CXRefQualifierKind RefQualifier => clang.Type_getCXXRefQualifier(this.ClangType);
+			public int NumTemplateArguments => clang.Type_getNumTemplateArguments(this.ClangType);
+			public long SizeOf => clang.Type_getSizeOf(this.ClangType);
+			public CXCursor Declaration => clang.getTypeDeclaration(this.ClangType);
 
-			public Scope(Scope parent, string name, ScopeKind kind)
-				: base (parent, name) {
-				this.Parent = parent;
-				this.Name = name;
-				this.Kind = kind;
+			public Type(Scope parent, File file, string name, CXCursor cursor)
+				: base(parent, file, name, cursor) {
 			}
 
-			public Scope ChildScope(string name, ScopeKind kind) {
-				NamedItem ni;
-				if (this.Children == null)
-					this.Children = new Dictionary<string, NamedItem>();
-				Scope scope;
-				if (this.Children.TryGetValue(name, out ni)) {
-					scope = ni as Scope;
-					if (scope == null)
-						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", ni.GetType().Name, " vs Scope"));
-					if (scope.Kind != kind)
-						throw new ApplicationException(string.Concat("\"", name, "\" Scope kind mismatch: " , scope.Kind, " vs ", kind));
-					return scope;
-				}
-				scope = new Scope(this, name, kind);
-				this.Children[name] = scope;
-				return scope;
+			public long OffsetOf(string S) {
+				return clang.Type_getOffsetOf(this.ClangType, S);
 			}
+
+			//public static ClangType TypedefDeclUnderlyingType(CXCursor c) {
+			//	return new ClangType(clang.getTypedefDeclUnderlyingType(c));
+			//}
+
+			public static string KindSpelling(CXTypeKind K) {
+				return clang.getTypeKindSpelling(K).ToString();
+			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
+		}
+
+		public class Variable : Entity {
+			public CXType Type => clang.getCursorType(this.Cursors.First().Cursor);
+
+			public Variable(Scope parent, File file, string name, CXCursor cursor)
+				: base(parent, file, name, cursor) {
+			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
+		}
+
+		public class Function : Entity {
+			public CXType Type => clang.getCursorResultType(this.Cursors.First().Cursor);
+
+			public Function(Scope parent, File file, string name, CXCursor cursor)
+				: base(parent, file, name, cursor) {
+			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
+
+			public Type ChildType(File file, string name, CXCursor cursor) => ChildType(this, file, name, cursor);
+			public Variable ChildVariable(File file, string name, CXCursor cursor) => ChildVariable(this, file, name, cursor);
+			public Function ChildFunction(File file, string name, CXCursor cursor) => ChildFunction(this, file, name, cursor);
 		}
 
 		public class ScopePath {
@@ -301,75 +453,6 @@ namespace ClangerConsole {
 			}
 		}
 
-		//public class Entity {
-		//	public CXCursor Cursor;
-		//	public ScopePath ParentPath;
-
-		//	public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
-		//	public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
-		//	public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
-		//	public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
-
-		//	public Entity(CXCursor cursor, ScopePath parentPath) {
-		//		this.Cursor = cursor;
-		//		this.ParentPath = parentPath;
-		//	}
-		//}
-
-		public class Type : Entity {
-			public CXType ClangType;
-			public string Name;
-
-			public string FullName => this.ParentPath != null ? this.ParentPath.MakeFullName(this.Name) : Name;
-			public CXType Canonical => clang.getCanonicalType(this.ClangType);
-			public long AlignOf => clang.Type_getAlignOf(this.ClangType);
-			public CXType ClassType => clang.Type_getClassType(this.ClangType);
-			public CXRefQualifierKind RefQualifier => clang.Type_getCXXRefQualifier(this.ClangType);
-			public int NumTemplateArguments => clang.Type_getNumTemplateArguments(this.ClangType);
-			public long SizeOf => clang.Type_getSizeOf(this.ClangType);
-			public CXCursor Declaration => clang.getTypeDeclaration(this.ClangType);
-
-			public Type(CXCursor cursor, ScopePath parentPath, CXType type)
-				: base(cursor, parentPath) {
-				this.ClangType = type;
-				this.Name = clang.getCursorDisplayName(cursor).ToString();
-			}
-
-			public long OffsetOf(string S) {
-				return clang.Type_getOffsetOf(this.ClangType, S);
-
-			}
-
-			//public static ClangType TypedefDeclUnderlyingType(CXCursor c) {
-			//	return new ClangType(clang.getTypedefDeclUnderlyingType(c));
-			//}
-
-			public static string KindSpelling(CXTypeKind K) {
-				return clang.getTypeKindSpelling(K).ToString();
-			}
-
-			public override string ToString() {
-				return this.FullName;
-			}
-		}
-
-		public class Variable : Entity {
-			public CXType Type;
-			public string Name;
-
-			public string FullName => this.ParentPath != null ? this.ParentPath.MakeFullName(this.Name) : Name;
-
-			public Variable(CXCursor cursor, ScopePath parentPath)
-				: base(cursor, parentPath) {
-				this.Type = clang.getCursorType(cursor);
-				this.Name = clang.getCursorDisplayName(cursor).ToString();
-			}
-
-			public override string ToString() {
-				return this.FullName;
-			}
-		}
-
 		public class Diagnostic {
 			public uint Category;
 			public string CategoryName {
@@ -401,29 +484,6 @@ namespace ClangerConsole {
 			}
 
 			// TODO: clang.disposeDiagnostic 呼び出す必要ありそう
-		}
-
-		public struct Position {
-			public uint Line;
-			public uint Column;
-
-			public override int GetHashCode() {
-				return this.Line.GetHashCode() ^ this.Column.GetHashCode();
-			}
-
-			public override bool Equals(object obj) {
-				if (obj is Position)
-					return (Position)obj == this;
-				return base.Equals(obj);
-			}
-
-			public static bool operator ==(Position a, Position b) {
-				return a.Line == b.Line && a.Column == b.Column;
-			}
-
-			public static bool operator !=(Position a, Position b) {
-				return a.Line != b.Line || a.Column != b.Column;
-			}
 		}
 
 		public class Location {
