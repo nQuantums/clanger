@@ -1,5 +1,5 @@
 ﻿//#include <Windows.h>
-#include "sample.h"
+#include "../ClangerConsole/sample.h"
 
 
 //namespace NS1 {

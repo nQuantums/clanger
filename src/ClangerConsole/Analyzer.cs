@@ -8,7 +8,7 @@ using System.Runtime.InteropServices;
 
 namespace ClangerConsole {
 	public class Analyzer : IDisposable {
-		const string NameScopeDelimiter = "::";
+		const string NameScopeDelimiter = ".";
 
 		#region PInvokes
 		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_Cursor_getOperatorString")]
@@ -160,15 +160,93 @@ namespace ClangerConsole {
 			}
 		}
 
-		public class Scope {
-			public string Name;
-			public string FullName;
-			public Type Type;
+		public enum ScopeKind {
+			File,
+			Namespace,
+			Class,
+			Function,
+			Block,
+		}
 
-			public Scope(string name, string parentPath, Type type) {
+		public class NamedItem {
+			public Scope Parent;
+			public string Name;
+
+			public string FullName {
+				get {
+					var sb = new StringBuilder();
+					foreach (var s in this.Path) {
+						var name = s.Name;
+						if (sb.Length != 0 && name.Length != 0)
+							sb.Append(NameScopeDelimiter);
+						sb.Append(name);
+					}
+					return sb.ToString();
+				}
+			}
+
+			public NamedItem[] Path {
+				get {
+					var path = new List<NamedItem>();
+					var ni = this;
+					do {
+						path.Add(ni);
+						ni = ni.Parent;
+					} while (ni != null);
+					path.Reverse();
+					return path.ToArray();
+				}
+			}
+
+			public NamedItem(Scope parent, string name) {
+				this.Parent = parent;
 				this.Name = name;
-				this.FullName = string.IsNullOrEmpty(parentPath) ? name : string.Concat(parentPath, NameScopeDelimiter, name);
-				this.Type = type;
+			}
+		}
+
+		public class Entity : NamedItem {
+			CXCursor Cursor;
+
+			public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
+			public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
+			public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
+			public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
+
+			public Entity(Scope parent, string name, CXCursor cursor)
+				: base(parent, name) {
+				this.Parent = parent;
+				this.Name = name;
+				this.Cursor = cursor;
+			}
+		}
+
+		public class Scope : NamedItem {
+			public Dictionary<string, NamedItem> Children;
+			public ScopeKind Kind;
+
+			public Scope(Scope parent, string name, ScopeKind kind)
+				: base (parent, name) {
+				this.Parent = parent;
+				this.Name = name;
+				this.Kind = kind;
+			}
+
+			public Scope ChildScope(string name, ScopeKind kind) {
+				NamedItem ni;
+				if (this.Children == null)
+					this.Children = new Dictionary<string, NamedItem>();
+				Scope scope;
+				if (this.Children.TryGetValue(name, out ni)) {
+					scope = ni as Scope;
+					if (scope == null)
+						throw new ApplicationException(string.Concat("\"", name, "\" class mismatch: ", ni.GetType().Name, " vs Scope"));
+					if (scope.Kind != kind)
+						throw new ApplicationException(string.Concat("\"", name, "\" Scope kind mismatch: " , scope.Kind, " vs ", kind));
+					return scope;
+				}
+				scope = new Scope(this, name, kind);
+				this.Children[name] = scope;
+				return scope;
 			}
 		}
 
@@ -223,20 +301,20 @@ namespace ClangerConsole {
 			}
 		}
 
-		public class Entity {
-			public CXCursor Cursor;
-			public ScopePath ParentPath;
+		//public class Entity {
+		//	public CXCursor Cursor;
+		//	public ScopePath ParentPath;
 
-			public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
-			public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
-			public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
-			public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
+		//	public Location ExpansionLocation => new Location(this.Cursor, Location.Kind.Expansion);
+		//	public Location PresumedLocation => new Location(this.Cursor, Location.Kind.Presumed);
+		//	public Location SpellingLocation => new Location(this.Cursor, Location.Kind.Spelling);
+		//	public Location FileLocation => new Location(this.Cursor, Location.Kind.File);
 
-			public Entity(CXCursor cursor, ScopePath parentPath) {
-				this.Cursor = cursor;
-				this.ParentPath = parentPath;
-			}
-		}
+		//	public Entity(CXCursor cursor, ScopePath parentPath) {
+		//		this.Cursor = cursor;
+		//		this.ParentPath = parentPath;
+		//	}
+		//}
 
 		public class Type : Entity {
 			public CXType ClangType;
@@ -325,6 +403,29 @@ namespace ClangerConsole {
 			// TODO: clang.disposeDiagnostic 呼び出す必要ありそう
 		}
 
+		public struct Position {
+			public uint Line;
+			public uint Column;
+
+			public override int GetHashCode() {
+				return this.Line.GetHashCode() ^ this.Column.GetHashCode();
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is Position)
+					return (Position)obj == this;
+				return base.Equals(obj);
+			}
+
+			public static bool operator ==(Position a, Position b) {
+				return a.Line == b.Line && a.Column == b.Column;
+			}
+
+			public static bool operator !=(Position a, Position b) {
+				return a.Line != b.Line || a.Column != b.Column;
+			}
+		}
+
 		public class Location {
 			public enum Kind {
 				Expansion,
@@ -389,11 +490,13 @@ namespace ClangerConsole {
 		}
 		#endregion
 
+		#region フィールド
 		CXIndex _Index;
 		Dictionary<string, CXTranslationUnit> _TranslationUnits = new Dictionary<string, CXTranslationUnit>();
 		Dictionary<EntityKey, Entity> _Entities = new Dictionary<EntityKey, Entity>();
 		ScopePath _ScopePath = new ScopePath();
 		Dictionary<TypeKey, Type> _Types = new Dictionary<TypeKey, Type>();
+		#endregion
 
 		#region 公開メソッド
 		public Analyzer() {
@@ -553,7 +656,7 @@ namespace ClangerConsole {
 
 				// TODO: アンマネージ リソース (アンマネージ オブジェクト) を解放し、下のファイナライザーをオーバーライドします。
 				// TODO: 大きなフィールドを null に設定します。
-				foreach(var tu in _TranslationUnits.Values) {
+				foreach (var tu in _TranslationUnits.Values) {
 					clang.disposeTranslationUnit(tu);
 				}
 				_TranslationUnits.Clear();
