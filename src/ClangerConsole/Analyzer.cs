@@ -96,15 +96,88 @@ namespace ClangerConsole {
 			}
 		}
 
-		public class Scope {
+		public class NamedItem {
+			public Scope Parent;
 			public string Name;
-			public string FullName;
-			public Type Type;
 
-			public Scope(string name, string parentPath, Type type) {
+			public string Path {
+				get {
+					var sb = new StringBuilder();
+					foreach (var ni in this.PathItems) {
+						var name = ni.Name;
+						if (sb.Length != 0 && name.Length != 0)
+							sb.Append(NameScopeDelimiter);
+						sb.Append(name);
+					}
+					return sb.ToString();
+				}
+			}
+
+			public NamedItem[] PathItems {
+				get {
+					var path = new List<NamedItem>();
+					var ni = this;
+					do {
+						path.Add(ni);
+						ni = ni.Parent;
+					} while (ni != null);
+					path.Reverse();
+					return path.ToArray();
+				}
+			}
+
+			public NamedItem(Scope parent, string name) {
+				this.Parent = parent;
 				this.Name = name;
-				this.FullName = string.IsNullOrEmpty(parentPath) ? name : string.Concat(parentPath, NameScopeDelimiter, name);
-				this.Type = type;
+			}
+		}
+
+		public class Entity : NamedItem {
+			public CXCursor Cursor;
+
+			public Location Location => new Location(this.Cursor);
+
+			public Entity(Scope parent, string name, CXCursor cursor)
+				: base(parent, name) {
+				this.Cursor = cursor;
+			}
+		}
+
+
+		public enum ScopeKind {
+			Namespace,
+			Class,
+			Function,
+			Block,
+		}
+
+		public class Scope : NamedItem {
+			public ScopeKind Kind;
+			public Dictionary<string, NamedItem> Children;
+
+			public Scope(Scope parent, string name, ScopeKind kind)
+				: base(parent, name) {
+				this.Kind = kind;
+			}
+
+			public Scope ChildScope(string name, ScopeKind kind) {
+				if (this.Children == null)
+					this.Children = new Dictionary<string, NamedItem>();
+
+				NamedItem ni;
+				Scope scope;
+				if (this.Children.TryGetValue(name, out ni)) {
+					scope = ni as Scope;
+					if (scope == null)
+						throw new ApplicationException();
+					if(scope.Kind != kind)
+						throw new ApplicationException();
+					return scope;
+				} else {
+					scope = new Scope(this, name, kind);
+					this.Children[name] = scope;
+					return scope;
+				}
 			}
 		}
 
@@ -156,18 +229,6 @@ namespace ClangerConsole {
 
 			public override string ToString() {
 				return this.FullName;
-			}
-		}
-
-		public class Entity {
-			public CXCursor Cursor;
-			public ScopePath ParentPath;
-
-			public Location Location => new Location(this.Cursor);
-
-			public Entity(CXCursor cursor, ScopePath parentPath) {
-				this.Cursor = cursor;
-				this.ParentPath = parentPath;
 			}
 		}
 
