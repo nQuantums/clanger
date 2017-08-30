@@ -1,3 +1,3 @@
-﻿struct Struct1 {
+struct Struct1 {
 
 };

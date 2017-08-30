@@ -15,6 +15,8 @@ namespace ClangerConsole {
 		public static extern CXString Cursor_getOperatorString(CXCursor param0);
 		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_Cursor_getLiteralString")]
 		public static extern CXString Cursor_getLiteralString(CXCursor param0);
+		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_disposeTokens")]
+		private static extern void disposeTokens(CXTranslationUnit tu, IntPtr tokens, uint numTokens);
 		#endregion
 
 		#region クラスなど
@@ -163,6 +165,10 @@ namespace ClangerConsole {
 			public File(string fullName) {
 				this.FullName = fullName;
 			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
 		}
 
 		public class FileContainer {
@@ -292,6 +298,7 @@ namespace ClangerConsole {
 						// 新規衝突アイテムコレクション作成
 						c = new Conflicts(parent);
 						c.ConflictsChildren[f] = s;
+						parent.Children[name] = c;
 					}
 
 					// 衝突アイテムとして追加
@@ -332,6 +339,16 @@ namespace ClangerConsole {
 				function.Cursors.Add(new CursorKey(cursor));
 				return function;
 			}
+
+			public Param ChildParam(File file, string name, CXCursor cursor) {
+				var param = Child<Param>(this, file, name, () => new Param(this, file, name, cursor));
+				param.Cursors.Add(new CursorKey(cursor));
+				return param;
+			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
 		}
 
 		public class Conflicts : Scope {
@@ -358,6 +375,7 @@ namespace ClangerConsole {
 			public Location PresumedLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Presumed);
 			public Location SpellingLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Spelling);
 			public Location FileLocation => new Location(this.Cursors.First().Cursor, Location.Kind.File);
+			public Location InstantiateLocation => new Location(this.Cursors.First().Cursor, Location.Kind.Instantiate);
 
 			public Entity(Scope parent, File file, string name, CXCursor cursor)
 				: base(parent, name) {
@@ -401,6 +419,18 @@ namespace ClangerConsole {
 			public CXType Type => clang.getCursorType(this.Cursors.First().Cursor);
 
 			public Variable(Scope parent, File file, string name, CXCursor cursor)
+				: base(parent, file, name, cursor) {
+			}
+
+			public override string ToString() {
+				return this.FullName;
+			}
+		}
+
+		public class Param : Entity {
+			public CXType Type => clang.getCursorType(this.Cursors.First().Cursor);
+
+			public Param(Scope parent, File file, string name, CXCursor cursor)
 				: base(parent, file, name, cursor) {
 			}
 
@@ -514,6 +544,7 @@ namespace ClangerConsole {
 				Presumed,
 				Spelling,
 				File,
+				Instantiate,
 			}
 
 			public string File;
@@ -548,6 +579,12 @@ namespace ClangerConsole {
 				case Kind.File: {
 						CXFile f;
 						clang.getFileLocation(loc, out f, out line, out column, out offset);
+						file = clang.getFileName(f).ToString();
+					}
+					break;
+				case Kind.Instantiate: {
+						CXFile f;
+						clang.getInstantiationLocation(loc, out f, out line, out column, out offset);
 						file = clang.getFileName(f).ToString();
 					}
 					break;
@@ -636,7 +673,7 @@ namespace ClangerConsole {
 
 			var ufile = new CXUnsavedFile();
 			var tu = new CXTranslationUnit();
-			var options = new List<string>(new string[] { "-std=c++11", "-ferror-limit=9999" });
+			var options = new List<string>(new string[] { "-std=c++14", "-ferror-limit=9999" });
 
 			if (includeDirs != null) {
 				foreach (var dir in includeDirs) {
@@ -653,15 +690,16 @@ namespace ClangerConsole {
 				options.Add("-fms-compatibility");
 			}
 
-			_ScopePath = new ScopePath();
-			_ScopePath.Push(_RootNamespace);
-			_CurrentTranslation = new Translation(tu, file);
-
 			var erro = clang.parseTranslationUnit2(_Index, sourceFile, options.ToArray(), options.Count, out ufile, 0, 0, out tu);
 			var diags = Diagnostic.CreateFrom(tu);
 
 			// 本当はここでエラーチェックが好ましい
 			var cursor = clang.getTranslationUnitCursor(tu);
+
+
+			_ScopePath = new ScopePath();
+			_ScopePath.Push(_RootNamespace);
+			_CurrentTranslation = new Translation(tu, file);
 
 			clang.visitChildren(cursor, this.VisitChild, new CXClientData());
 
@@ -670,11 +708,29 @@ namespace ClangerConsole {
 		#endregion
 
 		#region 内部メソッド
-		public Namespace NamespaceOf(CXCursor cursor) {
+		static CXToken[] Tokenize(CXTranslationUnit tu, CXSourceRange range) {
+			IntPtr pTokens;
+			uint numTokens;
+			clang.tokenize(tu, range, out pTokens, out numTokens);
+			try {
+				var tokens = new CXToken[numTokens];
+				unsafe {
+					var p = (CXToken*)pTokens.ToPointer();
+					for (uint i = 0; i < numTokens; i++) {
+						tokens[i] = p[i];
+					}
+				}
+				return tokens;
+			} finally {
+				disposeTokens(tu, pTokens, numTokens);
+			}
+		}
+
+		Namespace NamespaceOf(CXCursor cursor) {
 			return _ScopePath.Current.ChildNamespace(clang.getCursorDisplayName(cursor).ToString());
 		}
 
-		public Type TypeOf(CXCursor cursor) {
+		Type TypeOf(CXCursor cursor) {
 			CXString fileName;
 			Position position = new Position();
 			clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
@@ -688,13 +744,17 @@ namespace ClangerConsole {
 			return entity;
 		}
 
-		public Variable VariableOf(CXCursor cursor) {
+		Variable VariableOf(CXCursor cursor) {
+			var name = clang.getCursorDisplayName(cursor).ToString();
+			if (name.Length == 0)
+				return null; // ビットフィールドは名無しが許されてるらしい
+
 			CXString fileName;
 			Position position = new Position();
 			clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
 
 			var file = _Files.ChildFile(fileName.ToString());
-			var entity = _ScopePath.Current.ChildVariable(file, clang.getCursorDisplayName(cursor).ToString(), cursor);
+			var entity = _ScopePath.Current.ChildVariable(file, name, cursor);
 
 			file.Entities[position] = entity;
 			_CurrentTranslation.Entities[new CursorKey(cursor)] = entity;
@@ -702,7 +762,7 @@ namespace ClangerConsole {
 			return entity;
 		}
 
-		public Function FunctionOf(CXCursor cursor) {
+		Function FunctionOf(CXCursor cursor) {
 			CXString fileName;
 			Position position = new Position();
 			clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
@@ -716,13 +776,31 @@ namespace ClangerConsole {
 			return entity;
 		}
 
+		Param ParamOf(CXCursor cursor) {
+			var name = clang.getCursorDisplayName(cursor).ToString();
+			if (name.Length == 0)
+				return null; // パラメータは無名が許されている
+
+			CXString fileName;
+			Position position = new Position();
+			clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
+
+			var file = _Files.ChildFile(fileName.ToString());
+			var entity = _ScopePath.Current.ChildParam(file, name, cursor);
+
+			file.Entities[position] = entity;
+			_CurrentTranslation.Entities[new CursorKey(cursor)] = entity;
+
+			return entity;
+		}
+
 		CXChildVisitResult VisitChild(CXCursor cursor, CXCursor parent, IntPtr client_data) {
 			//var dname = clang.getCursorDisplayName(cursor).ToString();
-			//if (!string.IsNullOrEmpty(dname) && dname.Contains("TemplMethodInTemplVar")) {
+			//if (!string.IsNullOrEmpty(dname) && dname.Contains("vector")) {
+			//	var loc4 = new Location(clang.getCursorReferenced(cursor), Location.Kind.File);
 			//	var loc1 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Expansion);
 			//	var loc2 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Presumed);
 			//	var loc3 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Spelling);
-			//	var loc4 = new Location(clang.getCursorReferenced(cursor), Location.Kind.File);
 			//}
 
 			switch (cursor.kind) {
@@ -733,13 +811,14 @@ namespace ClangerConsole {
 			case CXCursorKind.CXCursor_StructDecl:
 			case CXCursorKind.CXCursor_ClassDecl:
 			case CXCursorKind.CXCursor_ClassTemplate:
+			case CXCursorKind.CXCursor_ClassTemplatePartialSpecialization:
 				_ScopePath.Push(TypeOf(cursor));
 				try {
 					clang.visitChildren(cursor, this.VisitChild, new CXClientData());
 				} finally {
 					_ScopePath.Pop();
 				}
-				break;
+				return CXChildVisitResult.CXChildVisit_Continue;
 
 			case CXCursorKind.CXCursor_FunctionDecl:
 			case CXCursorKind.CXCursor_FunctionTemplate:
@@ -750,11 +829,15 @@ namespace ClangerConsole {
 				} finally {
 					_ScopePath.Pop();
 				}
-				break;
+				return CXChildVisitResult.CXChildVisit_Continue;
 
 			case CXCursorKind.CXCursor_VarDecl:
 			case CXCursorKind.CXCursor_FieldDecl:
 				VariableOf(cursor);
+				break;
+
+			case CXCursorKind.CXCursor_ParmDecl:
+				ParamOf(cursor);
 				break;
 
 			case CXCursorKind.CXCursor_Namespace:
@@ -764,7 +847,7 @@ namespace ClangerConsole {
 				} finally {
 					_ScopePath.Pop();
 				}
-				break;
+				return CXChildVisitResult.CXChildVisit_Continue;
 
 			default:
 				break;

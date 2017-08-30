@@ -1,5 +1,9 @@
 ﻿//#include <Windows.h>
-#include "sample.h"
+//#include "sample.h"
+
+//int main() {
+//	return 0;
+//}
 
 //#define DECLVAR() \
 //	int g_A; \

@@ -1,5 +1,11 @@
-﻿//#include <Windows.h>
-#include "../ClangerConsole/sample.h"
+﻿#include <Windows.h>
+#include <vector>
+//#include "../ClangerConsole/sample.h"
+
+int Func(int a, int b) {
+	int c;
+	return 0;
+}
 
 
 //namespace NS1 {
