@@ -171,6 +171,16 @@ namespace ClangerConsole {
 			}
 		}
 
+		public class FilePosition {
+			public File File;
+			public Position Position;
+
+			public FilePosition(File file, Position position) {
+				this.File = file;
+				this.Position = position;
+			}
+		}
+
 		public class FileContainer {
 			Dictionary<string, File> _FilesDic = new Dictionary<string, File>();
 
@@ -794,8 +804,19 @@ namespace ClangerConsole {
 			return entity;
 		}
 
+		static string FullName(CXCursor cursor) {
+			if (clang.Cursor_isNull(cursor) != 0 || cursor.kind == CXCursorKind.CXCursor_TranslationUnit)
+				return "";
+			var path = FullName(clang.getCursorSemanticParent(cursor));
+			var name = clang.getCursorDisplayName(cursor).ToString();
+			//if (path.Length != 0)
+			//	return string.Concat(path, NameScopeDelimiter, name);
+			//return name;
+			return string.Concat(path, new Location(cursor), "\n", name, "\n");
+		}
+
 		CXChildVisitResult VisitChild(CXCursor cursor, CXCursor parent, IntPtr client_data) {
-			//var dname = clang.getCursorDisplayName(cursor).ToString();
+			var dname = clang.getCursorDisplayName(cursor).ToString();
 			//if (!string.IsNullOrEmpty(dname) && dname.Contains("vector")) {
 			//	var loc4 = new Location(clang.getCursorReferenced(cursor), Location.Kind.File);
 			//	var loc1 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Expansion);
@@ -812,6 +833,12 @@ namespace ClangerConsole {
 			case CXCursorKind.CXCursor_ClassDecl:
 			case CXCursorKind.CXCursor_ClassTemplate:
 			case CXCursorKind.CXCursor_ClassTemplatePartialSpecialization:
+				if (!string.IsNullOrEmpty(dname) && dname.Contains("lconv")) {
+					var semanticParent = clang.getCursorSemanticParent(cursor);
+					var semanticParent2 = clang.getCursorSemanticParent(semanticParent);
+					var nil = clang.Cursor_isNull(semanticParent2);
+					var loc4 = new Location(clang.getCursorReferenced(cursor), Location.Kind.File);
+				}
 				_ScopePath.Push(TypeOf(cursor));
 				try {
 					clang.visitChildren(cursor, this.VisitChild, new CXClientData());

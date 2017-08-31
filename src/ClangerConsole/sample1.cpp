@@ -1,9 +1,15 @@
-﻿#include <Windows.h>
-#include <vector>
-//#include "../ClangerConsole/sample.h"
+﻿//#include <Windows.h>
+//#include <vector>
+//#include "../../../../../../libs/cpp/JunkCpp/src/JunkDef.h"
+#include "sample.h"
 
 int Func(int a, int b) {
-	int c;
+	{
+		int c;
+	}
+	{
+		int c;
+	}
 	return 0;
 }
 
