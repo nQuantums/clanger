@@ -29,9 +29,21 @@
 //	}
 //}
 
+struct Struct1 {
+	int value;
+	int operator+(const Struct1& c) const {
+		return this->value + c.value;
+	}
+};
+
 int main() {
-	jk::Vector2f a, b, c;
-	c = a + b;
+	auto s1 = Struct1();
+	auto s2 = Struct1();
+	auto c = s1 + s2;
+
+	jk::Vector2f a, b, d;
+	d = a + b;
+
 
 	//Namespace1::Struct2::InlineMethod1(1);
 	return 0;

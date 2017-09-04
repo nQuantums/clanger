@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using ClangSharp;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace ClangerConsole {
 	public class Analyzer : IDisposable {
@@ -664,6 +665,7 @@ namespace ClangerConsole {
 		EntityBinder _EntityBinder = new EntityBinder();
 		Dictionary<File, Translation> _TranslationUnits = new Dictionary<File, Translation>();
 		Translation _CurrentTranslation;
+		HashSet<CXCursorKind> _UsedKinds = new HashSet<CXCursorKind>();
 		#endregion
 
 		#region 公開メソッド
@@ -712,6 +714,12 @@ namespace ClangerConsole {
 			//foreach(var e in new List<Entity>(_CursorToEntity.Values)) {
 			//	Console.WriteLine(e.FullName);
 			//}
+
+			var kinds = new List<CXCursorKind>(_UsedKinds);
+			kinds.Sort();
+			foreach(var kind in kinds) {
+				Console.WriteLine(kind);
+			}
 
 			_TranslationUnits[file] = _CurrentTranslation;
 		}
@@ -784,24 +792,65 @@ namespace ClangerConsole {
 			//return string.Concat(path, new DecodedLocation(cursor), "\n", name, "\n");
 		}
 
+		static void ShowCode(CXCursor cursor) {
+			var loc = new DecodedLocation(cursor, DecodedLocation.Kind.Spelling);
+			var p = Process.Start("code", string.Concat("-g \"", loc.FullPath, "\":", loc.Line));
+			p.WaitForExit();
+		}
+
 		CXChildVisitResult VisitChild(CXCursor cursor, CXCursor parent, IntPtr client_data) {
 			//var dname = clang.getCursorDisplayName(cursor).ToString();
 			//if (!string.IsNullOrEmpty(dname) && dname == "_InterlockedIncrement" /*dname.Contains("_InterlockedIncrement")*/) {
 			//	var loc1 = new DecodedLocation(clang.getCursorReferenced(cursor), DecodedLocation.Kind.Spelling);
 			//}
 
+			_UsedKinds.Add(cursor.kind);
+
 			switch (cursor.kind) {
 			case CXCursorKind.CXCursor_TypedefDecl:
 			case CXCursorKind.CXCursor_StructDecl:
+			case CXCursorKind.CXCursor_UnionDecl:
+			case CXCursorKind.CXCursor_EnumDecl:
 			case CXCursorKind.CXCursor_ClassDecl:
 			case CXCursorKind.CXCursor_ClassTemplate:
 			case CXCursorKind.CXCursor_ClassTemplatePartialSpecialization:
 				TypeOf(cursor);
 				break;
 
+			// TODO: ↓の種類を処理する必要がありそう
+			//case CXCursorKind.CXCursor_EnumConstantDecl:
+			//	break;
+			//case CXCursorKind.CXCursor_NullStmt:
+			//	break;
+			//case CXCursorKind.CXCursor_MemberRefExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_PackExpansionExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_UnaryExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_TemplateTypeParameter:
+			//	ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_NonTypeTemplateParameter:
+			//	ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_TemplateTemplateParameter:
+			//	ShowCode(cursor);
+			//	break;
+
+			//case CXCursorKind.CXCursor_TypeAliasDecl:
+			//	ShowCode(cursor);
+			//	break;
+
 			case CXCursorKind.CXCursor_FunctionDecl:
 			case CXCursorKind.CXCursor_FunctionTemplate:
+			case CXCursorKind.CXCursor_Constructor:
+			case CXCursorKind.CXCursor_Destructor:
 			case CXCursorKind.CXCursor_CXXMethod:
+			case CXCursorKind.CXCursor_ConversionFunction:
 				FunctionOf(cursor);
 				break;
 
@@ -827,7 +876,7 @@ namespace ClangerConsole {
 					if (clang.isInvalid(cursorDef.kind) == 0 && IsFunction(cursorDef.kind)) {
 						var loc = new DecodedLocation(cursor, DecodedLocation.Kind.Spelling);
 						var func = FunctionOf(cursorDef);
-						Console.WriteLine(string.Concat(loc, " : ", func.FullName));
+						//Console.WriteLine(string.Concat(loc, " : ", func.FullName));
 					}
 				}
 				break;
