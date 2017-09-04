@@ -160,7 +160,7 @@ namespace ClangerConsole {
 
 		public class File {
 			public string FullName;
-			public Dictionary<Position, Entity> Entities = new Dictionary<Position, Entity>();
+			public Dictionary<AbsLocation, Entity> Entities = new Dictionary<AbsLocation, Entity>();
 
 			public File(string fullName) {
 				this.FullName = fullName;
@@ -206,9 +206,103 @@ namespace ClangerConsole {
 		public struct Location {
 			public File File;
 			public Position Position;
+			public string Name;
+			public CXCursorKind Kind;
+
+			public Location(File file, Position position, string name, CXCursorKind kind) {
+				this.File = file;
+				this.Position = position;
+				this.Name = name;
+				this.Kind = kind;
+			}
 
 			public override string ToString() {
-				return string.Concat("<", this.File, ">(", this.Position, ")");
+				return string.Concat("<", this.File, ">(", this.Position, "): ", this.Name);
+			}
+
+			public override int GetHashCode() {
+				return this.File.GetHashCode() ^ this.Position.GetHashCode() ^ this.Name.GetHashCode() ^ this.Kind.GetHashCode();
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is Location)
+					return (Location)obj == this;
+				return base.Equals(obj);
+			}
+
+			public static bool operator ==(Location a, Location b) {
+				if (a.File != b.File)
+					return false;
+				if (a.Position != b.Position)
+					return false;
+				if (a.Name != b.Name)
+					return false;
+				if (a.Kind != b.Kind)
+					return false;
+				return true;
+			}
+
+			public static bool operator !=(Location a, Location b) {
+				if (a.File != b.File)
+					return true;
+				if (a.Position != b.Position)
+					return true;
+				if (a.Name != b.Name)
+					return true;
+				if (a.Kind != b.Kind)
+					return true;
+				return false;
+			}
+		}
+
+		public struct AbsLocation {
+			public Location[] Path;
+
+			public AbsLocation(Location[] path) {
+				this.Path = path;
+			}
+
+			public override string ToString() {
+				var sb = new StringBuilder();
+				foreach(var p in this.Path) {
+					sb.AppendLine(p.ToString());
+				}
+				return sb.ToString();
+			}
+
+			public override int GetHashCode() {
+				int hc = 0;
+				for (int i = 0; i < this.Path.Length; i++)
+					hc ^= this.Path[i].GetHashCode();
+				return hc;
+			}
+
+			public override bool Equals(object obj) {
+				if (obj is AbsLocation)
+					return (AbsLocation)obj == this;
+				return base.Equals(obj);
+			}
+
+			public static bool operator ==(AbsLocation a, AbsLocation b) {
+				if (a.Path.Length != b.Path.Length)
+					return false;
+				for (int i = 0; i < a.Path.Length; i++) {
+					if (a.Path[i] != b.Path[i]) {
+						return false;
+					}
+				}
+				return true;
+			}
+
+			public static bool operator !=(AbsLocation a, AbsLocation b) {
+				if (a.Path.Length != b.Path.Length)
+					return true;
+				for (int i = 0; i < a.Path.Length; i++) {
+					if (a.Path[i] != b.Path[i]) {
+						return true;
+					}
+				}
+				return false;
 			}
 		}
 
@@ -234,14 +328,38 @@ namespace ClangerConsole {
 				//clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
 				//var file = File(fileName.ToString());
 
-				CXFile f;
-				uint offset;
-				Position position = new Position();
-				clang.getSpellingLocation(clang.getCursorLocation(cursor), out f, out position.Line, out position.Column, out offset);
-				var file = File(clang.getFileName(f).ToString());
+				var c = cursor;
+				uint offset1, offset2;
+				var list = new List<Location>();
+				File leafFile = null;
+				string leafName = null;
+				do {
+					var loc = clang.getCursorLocation(c);
+
+					CXFile f1, f2;
+					Position position1 = new Position(), position2 = new Position();
+					clang.getSpellingLocation(loc, out f1, out position1.Line, out position1.Column, out offset1);
+					clang.getExpansionLocation(loc, out f2, out position2.Line, out position2.Column, out offset2);
+
+					var file = File(clang.getFileName(f1).ToString());
+					if (leafFile == null)
+						leafFile = file;
+
+					var name = clang.getCursorDisplayName(c).ToString();
+					list.Add(new Location(file, position1, name, c.kind));
+					if (leafName == null)
+						leafName = name;
+
+					c = clang.getCursorSemanticParent(c);
+					
+				} while (offset1 != offset2 && clang.isInvalid(c.kind) == 0 && c.kind != CXCursorKind.CXCursor_TranslationUnit);
+
+				list.Reverse();
+
+				var absLocation = new AbsLocation(list.ToArray());
 
 				Entity e;
-				if(file.Entities.TryGetValue(position, out e)) {
+				if(leafFile.Entities.TryGetValue(absLocation, out e)) {
 					var t = e as T;
 					if (t == null)
 						throw new ApplicationException(string.Concat("\"", e.FullName, "\" class mismatch: ", e.GetType().Name, " vs ", typeof(T).Name));
@@ -250,10 +368,10 @@ namespace ClangerConsole {
 					if (creator == null)
 						return null;
 					var t = creator();
+					t.Name = leafName;
 					t.Cursors.Add(new CursorKey(cursor));
-					t.Location.File = file;
-					t.Location.Position = position;
-					file.Entities.Add(position, t);
+					t.AbsLocation = absLocation;
+					leafFile.Entities.Add(absLocation, t);
 					return t;
 				}
 			}
@@ -265,29 +383,21 @@ namespace ClangerConsole {
 		public class Entity {
 			static readonly Entity InitialParent = new Entity(null);
 
-			string _Name;
 			Entity _Parent = InitialParent;
 
+			public string Name;
 			public Analyzer Owner;
 			public HashSet<CursorKey> Cursors = new HashSet<CursorKey>();
-			public Location Location;
+			public AbsLocation AbsLocation;
 			public Dictionary<string, Entity> Children;
 
 			public Entity Parent {
 				get {
-					//if(_Parent == InitialParent) {
-					//	var parentCursor = clang.getCursorSemanticParent(this.Cursors.First().Cursor);
-					//	_Parent = clang.Cursor_isNull(parentCursor) == 0 && parentCursor.kind != CXCursorKind.CXCursor_TranslationUnit ? this.Owner.EntityOf<Entity>(parentCursor, null) : null;
-					//}
-					return _Parent;
-				}
-			}
-			public string Name {
-				get {
-					if (_Name == null) {
-						_Name = clang.getCursorDisplayName(this.Cursors.First().Cursor).ToString();
+					if (_Parent == InitialParent) {
+						var parentCursor = clang.getCursorSemanticParent(this.Cursors.First().Cursor);
+						_Parent = clang.isInvalid(parentCursor.kind) == 0 && parentCursor.kind != CXCursorKind.CXCursor_TranslationUnit ? this.Owner.EntityOf<Entity>(parentCursor, null) : null;
 					}
-					return _Name;
+					return _Parent;
 				}
 			}
 			public DecodedLocation ExpansionLocation => new DecodedLocation(this.Cursors.First().Cursor, DecodedLocation.Kind.Expansion);
@@ -418,6 +528,7 @@ namespace ClangerConsole {
 				this.CategoryText = clang.getDiagnosticCategoryText(d).ToString();
 				this.Text = clang.formatDiagnostic(d, unchecked((uint)-1)).ToString();
 				this.Location = new DecodedLocation(clang.getDiagnosticLocation(d), DecodedLocation.Kind.Presumed);
+				clang.disposeDiagnostic(d);
 			}
 
 			public static Diagnostic[] CreateFrom(CXTranslationUnit tu) {
@@ -557,7 +668,7 @@ namespace ClangerConsole {
 
 		#region 公開メソッド
 		public Analyzer() {
-			_Index = clang.createIndex(0, 1);
+			_Index = clang.createIndex(0, 0);
 		}
 
 		public void Parse(string sourceFile, string[] includeDirs = null, string[] additionalOptions = null, bool msCompati = true) {
@@ -586,6 +697,9 @@ namespace ClangerConsole {
 
 			var erro = clang.parseTranslationUnit2(_Index, sourceFile, options.ToArray(), options.Count, out ufile, 0, 0, out tu);
 			var diags = Diagnostic.CreateFrom(tu);
+			foreach(var d in diags) {
+				Console.WriteLine(d);
+			}
 
 			// 本当はここでエラーチェックが好ましい
 			var cursor = clang.getTranslationUnitCursor(tu);
@@ -593,6 +707,11 @@ namespace ClangerConsole {
 			_CurrentTranslation = new Translation(tu, file);
 
 			clang.visitChildren(cursor, this.VisitChild, new CXClientData());
+
+
+			//foreach(var e in new List<Entity>(_CursorToEntity.Values)) {
+			//	Console.WriteLine(e.FullName);
+			//}
 
 			_TranslationUnits[file] = _CurrentTranslation;
 		}
@@ -627,6 +746,8 @@ namespace ClangerConsole {
 				return t;
 			} else {
 				var t = _EntityBinder.Entity<T>(cursor, creator);
+				if (creator == null)
+					return t;
 				_CursorToEntity.Add(key, t);
 				return t;
 			}
@@ -653,23 +774,20 @@ namespace ClangerConsole {
 		}
 
 		static string FullName(CXCursor cursor) {
-			if (clang.Cursor_isNull(cursor) != 0 || cursor.kind == CXCursorKind.CXCursor_TranslationUnit)
+			if (clang.isInvalid(cursor.kind) != 0 || cursor.kind == CXCursorKind.CXCursor_TranslationUnit)
 				return "";
 			var path = FullName(clang.getCursorSemanticParent(cursor));
 			var name = clang.getCursorDisplayName(cursor).ToString();
-			//if (path.Length != 0)
-			//	return string.Concat(path, NameScopeDelimiter, name);
-			//return name;
-			return string.Concat(path, new DecodedLocation(cursor), "\n", name, "\n");
+			if (path.Length != 0)
+				return string.Concat(path, NameScopeDelimiter, name);
+			return name;
+			//return string.Concat(path, new DecodedLocation(cursor), "\n", name, "\n");
 		}
 
 		CXChildVisitResult VisitChild(CXCursor cursor, CXCursor parent, IntPtr client_data) {
-			var dname = clang.getCursorDisplayName(cursor).ToString();
-			//if (!string.IsNullOrEmpty(dname) && dname.Contains("vector")) {
-			//	var loc4 = new Location(clang.getCursorReferenced(cursor), Location.Kind.File);
-			//	var loc1 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Expansion);
-			//	var loc2 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Presumed);
-			//	var loc3 = new Location(clang.getCursorReferenced(cursor), Location.Kind.Spelling);
+			//var dname = clang.getCursorDisplayName(cursor).ToString();
+			//if (!string.IsNullOrEmpty(dname) && dname == "_InterlockedIncrement" /*dname.Contains("_InterlockedIncrement")*/) {
+			//	var loc1 = new DecodedLocation(clang.getCursorReferenced(cursor), DecodedLocation.Kind.Spelling);
 			//}
 
 			switch (cursor.kind) {
@@ -700,11 +818,39 @@ namespace ClangerConsole {
 				NamespaceOf(cursor);
 				break;
 
+			case CXCursorKind.CXCursor_CallExpr: {
+					var cursorDef = clang.getCursorDefinition(cursor);
+					if (clang.isInvalid(cursorDef.kind) != 0 || !IsFunction(cursorDef.kind)) {
+						cursorDef = clang.getCursorReferenced(cursor);
+					}
+
+					if (clang.isInvalid(cursorDef.kind) == 0 && IsFunction(cursorDef.kind)) {
+						var loc = new DecodedLocation(cursor, DecodedLocation.Kind.Spelling);
+						var func = FunctionOf(cursorDef);
+						Console.WriteLine(string.Concat(loc, " : ", func.FullName));
+					}
+				}
+				break;
+
+			case CXCursorKind.CXCursor_BinaryOperator:
+				break;
+
 			default:
 				break;
 			}
 
 			return CXChildVisitResult.CXChildVisit_Recurse;
+		}
+
+		static bool IsFunction(CXCursorKind kind) {
+			switch(kind) {
+			case CXCursorKind.CXCursor_FunctionDecl:
+			case CXCursorKind.CXCursor_FunctionTemplate:
+			case CXCursorKind.CXCursor_CXXMethod:
+				return true;
+			default:
+				return false;
+			}
 		}
 		#endregion
 

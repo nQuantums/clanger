@@ -1,9 +1,39 @@
-﻿#include <Windows.h>
-#include <vector>
-//#include "../ClangerConsole/sample.h"
+﻿//#pragma intrinsic(_InterlockedIncrement)
+//extern "C" long _InterlockedIncrement(long volatile *);
 
-int Func(int a, int b) {
-	int c;
+//#include <Windows.h>
+//#include <vector>
+//#include "../ClangerConsole/sample.h"
+#include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
+//
+//#define DEF_FUNCS() \
+//	int Func1(int a, int b) { \
+//		int c; \
+//		int d; \
+//		return 0; \
+//	}
+//
+//namespace Namespace1 {
+//	extern "C" {
+//		DEF_FUNCS()
+//	}
+//}
+
+//extern "C++" {
+//
+//	__forceinline unsigned InterlockedIncrement(
+//			unsigned volatile *Addend
+//		)
+//	{
+//		return (unsigned)_InterlockedIncrement((volatile long*)Addend);
+//	}
+//}
+
+int main() {
+	jk::Vector2f a, b, c;
+	c = a + b;
+
+	//Namespace1::Struct2::InlineMethod1(1);
 	return 0;
 }
 

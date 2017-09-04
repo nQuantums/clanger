@@ -1,5 +1,19 @@
 ﻿//#include <Windows.h>
-#include "sample.h"
+//#include "sample.h"
+//
+//#define DEF_FUNCS() \
+//	int Func1(int a, int b) { \
+//		int c; \
+//		int d; \
+//		return 0; \
+//	}
+//
+//	namespace Namespace1 {
+//		extern "C" {
+//			DEF_FUNCS()
+//		}
+//	}
+
 
 //int main() {
 //	return 0;
