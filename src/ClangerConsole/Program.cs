@@ -39,10 +39,10 @@ namespace ClangerConsole {
 				includeDirs,
 				additionalOptions);
 
-			a.Parse(
-				@"../../../sample2.cpp",
-				includeDirs,
-				additionalOptions);
+			//a.Parse(
+			//	@"../../../sample2.cpp",
+			//	includeDirs,
+			//	additionalOptions);
 		}
 	}
 }

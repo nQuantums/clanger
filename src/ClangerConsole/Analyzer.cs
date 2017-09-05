@@ -794,7 +794,7 @@ namespace ClangerConsole {
 
 		static void ShowCode(CXCursor cursor) {
 			var loc = new DecodedLocation(cursor, DecodedLocation.Kind.Spelling);
-			var p = Process.Start("code", string.Concat("-g \"", loc.FullPath, "\":", loc.Line));
+			var p = Process.Start("code", string.Concat("-g \"", loc.FullPath, "\":", loc.Line, "\":", loc.Column));
 			p.WaitForExit();
 		}
 
@@ -841,9 +841,18 @@ namespace ClangerConsole {
 			//	ShowCode(cursor);
 			//	break;
 
-			//case CXCursorKind.CXCursor_TypeAliasDecl:
-			//	ShowCode(cursor);
-			//	break;
+			case CXCursorKind.CXCursor_DeclRefExpr:
+				// 変数、関数？参照
+				// ShowCode(cursor);
+				// ShowCode(clang.getCursorDefinition(cursor));
+				break;
+
+			case CXCursorKind.CXCursor_MemberRef:
+			case CXCursorKind.CXCursor_MemberRefExpr:
+				// メンバ変数参照
+				//ShowCode(cursor);
+				//ShowCode(clang.getCursorDefinition(cursor));
+				break;
 
 			case CXCursorKind.CXCursor_FunctionDecl:
 			case CXCursorKind.CXCursor_FunctionTemplate:

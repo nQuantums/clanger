@@ -4,7 +4,7 @@
 //#include <Windows.h>
 //#include <vector>
 //#include "../ClangerConsole/sample.h"
-#include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
+//#include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
 //
 //#define DEF_FUNCS() \
 //	int Func1(int a, int b) { \
@@ -29,20 +29,26 @@
 //	}
 //}
 
-struct Struct1 {
-	int value;
-	int operator+(const Struct1& c) const {
-		return this->value + c.value;
+ struct Struct1 {
+ 	int value;
+	Struct1(int value) {
+		this->value = value;
 	}
-};
+ 	int operator+(const Struct1& c) const {
+ 		return this->value + c.value;
+ 	}
+ };
 
 int main() {
-	auto s1 = Struct1();
-	auto s2 = Struct1();
-	auto c = s1 + s2;
+	auto a = Struct1();
+	auto b = Struct1();
+	auto c = a + b;
+	// auto s1 = Struct1();
+	// auto s2 = Struct1();
+	// auto c = s1 + s2;
 
-	jk::Vector2f a, b, d;
-	d = a + b;
+	// jk::Vector2f a, b, d;
+	// d = a + b;
 
 
 	//Namespace1::Struct2::InlineMethod1(1);
