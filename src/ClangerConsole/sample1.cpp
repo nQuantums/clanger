@@ -6,8 +6,6 @@
 //#include "../ClangerConsole/sample.h"
 #include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
 
-std::_Bool_struct<std::exception_ptr>::
-
 //
 //#define DEF_FUNCS() \
 //	int Func1(int a, int b) { \
@@ -43,8 +41,8 @@ std::_Bool_struct<std::exception_ptr>::
  };
 
 int main() {
-	auto a = Struct1();
-	auto b = Struct1();
+	auto a = Struct1(1);
+	auto b = Struct1(2);
 	auto c = a + b;
 	// auto s1 = Struct1();
 	// auto s2 = Struct1();
