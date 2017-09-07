@@ -161,7 +161,7 @@ namespace ClangerConsole {
 
 		public class File {
 			public string FullName;
-			public Dictionary<AbsLocation, Entity> Entities = new Dictionary<AbsLocation, Entity>();
+			public Dictionary<LocationPath, Entity> Entities = new Dictionary<LocationPath, Entity>();
 
 			public File(string fullName) {
 				this.FullName = fullName;
@@ -204,13 +204,13 @@ namespace ClangerConsole {
 			}
 		}
 
-		public struct Location {
+		public struct LocationItem {
 			public File File;
 			public Position Position;
 			public string Name;
 			public CXCursorKind Kind;
 
-			public Location(File file, Position position, string name, CXCursorKind kind) {
+			public LocationItem(File file, Position position, string name, CXCursorKind kind) {
 				this.File = file;
 				this.Position = position;
 				this.Name = name;
@@ -226,12 +226,12 @@ namespace ClangerConsole {
 			}
 
 			public override bool Equals(object obj) {
-				if (obj is Location)
-					return (Location)obj == this;
+				if (obj is LocationItem)
+					return (LocationItem)obj == this;
 				return base.Equals(obj);
 			}
 
-			public static bool operator ==(Location a, Location b) {
+			public static bool operator ==(LocationItem a, LocationItem b) {
 				if (a.File != b.File)
 					return false;
 				if (a.Position != b.Position)
@@ -243,7 +243,7 @@ namespace ClangerConsole {
 				return true;
 			}
 
-			public static bool operator !=(Location a, Location b) {
+			public static bool operator !=(LocationItem a, LocationItem b) {
 				if (a.File != b.File)
 					return true;
 				if (a.Position != b.Position)
@@ -256,10 +256,10 @@ namespace ClangerConsole {
 			}
 		}
 
-		public struct AbsLocation {
-			public Location[] Path;
+		public struct LocationPath {
+			public LocationItem[] Path;
 
-			public AbsLocation(Location[] path) {
+			public LocationPath(LocationItem[] path) {
 				this.Path = path;
 			}
 
@@ -279,12 +279,12 @@ namespace ClangerConsole {
 			}
 
 			public override bool Equals(object obj) {
-				if (obj is AbsLocation)
-					return (AbsLocation)obj == this;
+				if (obj is LocationPath)
+					return (LocationPath)obj == this;
 				return base.Equals(obj);
 			}
 
-			public static bool operator ==(AbsLocation a, AbsLocation b) {
+			public static bool operator ==(LocationPath a, LocationPath b) {
 				if (a.Path.Length != b.Path.Length)
 					return false;
 				for (int i = 0; i < a.Path.Length; i++) {
@@ -295,7 +295,7 @@ namespace ClangerConsole {
 				return true;
 			}
 
-			public static bool operator !=(AbsLocation a, AbsLocation b) {
+			public static bool operator !=(LocationPath a, LocationPath b) {
 				if (a.Path.Length != b.Path.Length)
 					return true;
 				for (int i = 0; i < a.Path.Length; i++) {
@@ -324,14 +324,9 @@ namespace ClangerConsole {
 			}
 
 			public T Entity<T>(CXCursor cursor, Func<T> creator) where T : Entity {
-				//CXString fileName;
-				//Position position = new Position();
-				//clang.getPresumedLocation(clang.getCursorLocation(cursor), out fileName, out position.Line, out position.Column);
-				//var file = File(fileName.ToString());
-
 				var c = cursor;
 				uint offset1, offset2;
-				var list = new List<Location>();
+				var list = new List<LocationItem>();
 				File leafFile = null;
 				string leafName = null;
 				do {
@@ -340,6 +335,8 @@ namespace ClangerConsole {
 					CXFile f1, f2;
 					Position position1 = new Position(), position2 = new Position();
 					clang.getSpellingLocation(loc, out f1, out position1.Line, out position1.Column, out offset1);
+					if (position1.Line == 0)
+						return null;
 					clang.getExpansionLocation(loc, out f2, out position2.Line, out position2.Column, out offset2);
 
 					var file = File(clang.getFileName(f1).ToString());
@@ -347,7 +344,7 @@ namespace ClangerConsole {
 						leafFile = file;
 
 					var name = clang.getCursorDisplayName(c).ToString();
-					list.Add(new Location(file, position1, name, c.kind));
+					list.Add(new LocationItem(file, position1, name, c.kind));
 					if (leafName == null)
 						leafName = name;
 
@@ -357,10 +354,10 @@ namespace ClangerConsole {
 
 				list.Reverse();
 
-				var absLocation = new AbsLocation(list.ToArray());
+				var locationPath = new LocationPath(list.ToArray());
 
 				Entity e;
-				if(leafFile.Entities.TryGetValue(absLocation, out e)) {
+				if(leafFile.Entities.TryGetValue(locationPath, out e)) {
 					var t = e as T;
 					if (t == null)
 						throw new ApplicationException(string.Concat("\"", e.FullName, "\" class mismatch: ", e.GetType().Name, " vs ", typeof(T).Name));
@@ -371,8 +368,8 @@ namespace ClangerConsole {
 					var t = creator();
 					t.Name = leafName;
 					t.Cursors.Add(new CursorKey(cursor));
-					t.AbsLocation = absLocation;
-					leafFile.Entities.Add(absLocation, t);
+					t.LocationPath = locationPath;
+					leafFile.Entities.Add(locationPath, t);
 					return t;
 				}
 			}
@@ -389,7 +386,7 @@ namespace ClangerConsole {
 			public string Name;
 			public Analyzer Owner;
 			public HashSet<CursorKey> Cursors = new HashSet<CursorKey>();
-			public AbsLocation AbsLocation;
+			public LocationPath LocationPath;
 			public Dictionary<string, Entity> Children;
 
 			public Entity Parent {
@@ -474,20 +471,12 @@ namespace ClangerConsole {
 			public static string KindSpelling(CXTypeKind K) {
 				return clang.getTypeKindSpelling(K).ToString();
 			}
-
-			public override string ToString() {
-				return this.FullName;
-			}
 		}
 
 		public class Variable : Entity {
 			public CXType Type => clang.getCursorType(this.Cursors.First().Cursor);
 
 			public Variable(Analyzer owner) : base(owner) {
-			}
-
-			public override string ToString() {
-				return this.FullName;
 			}
 		}
 
@@ -496,10 +485,6 @@ namespace ClangerConsole {
 
 			public Param(Analyzer owner) : base(owner) {
 			}
-
-			public override string ToString() {
-				return this.FullName;
-			}
 		}
 
 		public class Function : Entity {
@@ -507,9 +492,48 @@ namespace ClangerConsole {
 
 			public Function(Analyzer owner) : base(owner) {
 			}
+		}
 
-			public override string ToString() {
-				return this.FullName;
+		public class FunctionCall : Entity {
+			public Function Function {
+				get {
+					var cursor = this.Cursors.First().Cursor;
+					var cursorDef = clang.getCursorDefinition(cursor);
+					if (clang.isInvalid(cursorDef.kind) != 0 || !IsFunction(cursorDef.kind)) {
+						cursorDef = clang.getCursorReferenced(cursor);
+					}
+
+					if (clang.isInvalid(cursorDef.kind) == 0 && IsFunction(cursorDef.kind)) {
+						return this.Owner.EntityOf<Function>(cursorDef, () => new Function(this.Owner));
+					} else {
+						Console.WriteLine(string.Concat(this.SpellingLocation, ": ", this.Name));
+						return null;
+					}
+				}
+			}
+
+			public FunctionCall(Analyzer owner) : base(owner) {
+			}
+		}
+
+		public class VariableRef : Entity {
+			public Variable Variable {
+				get {
+					var cursor = this.Cursors.First().Cursor;
+					var cursorDef = clang.getCursorDefinition(cursor);
+					if (clang.isInvalid(cursorDef.kind) != 0 || !IsVariable(cursorDef.kind)) {
+						cursorDef = clang.getCursorReferenced(cursor);
+					}
+
+					if (clang.isInvalid(cursorDef.kind) == 0 && IsVariable(cursorDef.kind)) {
+						return this.Owner.EntityOf<Variable>(cursorDef, () => new Variable(this.Owner));
+					} else {
+						return null;
+					}
+				}
+			}
+
+			public VariableRef(Analyzer owner) : base(owner) {
 			}
 		}
 
@@ -754,31 +778,88 @@ namespace ClangerConsole {
 				return t;
 			} else {
 				var t = _EntityBinder.Entity<T>(cursor, creator);
-				if (creator == null)
-					return t;
+				if (t == null)
+					return null;
 				_CursorToEntity.Add(key, t);
 				return t;
 			}
 		}
 
-		Namespace NamespaceOf(CXCursor cursor) {
-			return EntityOf<Namespace>(cursor, () => new Namespace(this));
-		}
+		Entity EntityOf(CXCursor cursor) {
+			switch (cursor.kind) {
+			case CXCursorKind.CXCursor_TypedefDecl:
+			case CXCursorKind.CXCursor_StructDecl:
+			case CXCursorKind.CXCursor_UnionDecl:
+			case CXCursorKind.CXCursor_EnumDecl:
+			case CXCursorKind.CXCursor_ClassDecl:
+			case CXCursorKind.CXCursor_ClassTemplate:
+			case CXCursorKind.CXCursor_ClassTemplatePartialSpecialization:
+				// 型など宣言
+				return EntityOf<Type>(cursor, () => new Type(this));
 
-		Type TypeOf(CXCursor cursor) {
-			return EntityOf<Type>(cursor, () => new Type(this));
-		}
+			case CXCursorKind.CXCursor_FunctionDecl:
+			case CXCursorKind.CXCursor_FunctionTemplate:
+			case CXCursorKind.CXCursor_Constructor:
+			case CXCursorKind.CXCursor_Destructor:
+			case CXCursorKind.CXCursor_CXXMethod:
+			case CXCursorKind.CXCursor_ConversionFunction:
+				// 関数、メソッドなど宣言
+				return EntityOf<Function>(cursor, () => new Function(this));
 
-		Variable VariableOf(CXCursor cursor) {
-			return EntityOf<Variable>(cursor, () => new Variable(this));
-		}
+			case CXCursorKind.CXCursor_VarDecl:
+			case CXCursorKind.CXCursor_FieldDecl:
+				// 変数など宣言
+				return EntityOf<Variable>(cursor, () => new Variable(this));
 
-		Function FunctionOf(CXCursor cursor) {
-			return EntityOf<Function>(cursor, () => new Function(this));
-		}
+			case CXCursorKind.CXCursor_ParmDecl:
+				// 引数宣言
+				return EntityOf<Param>(cursor, () => new Param(this));
 
-		Param ParamOf(CXCursor cursor) {
-			return EntityOf<Param>(cursor, () => new Param(this));
+			case CXCursorKind.CXCursor_Namespace:
+				// ネームスペース
+				return EntityOf<Namespace>(cursor, () => new Namespace(this));
+
+			case CXCursorKind.CXCursor_CallExpr:
+				// 関数呼び出し
+				return EntityOf<FunctionCall>(cursor, () => new FunctionCall(this));
+
+			case CXCursorKind.CXCursor_DeclRefExpr:
+			case CXCursorKind.CXCursor_MemberRef:
+			case CXCursorKind.CXCursor_MemberRefExpr:
+				// 参照
+				return EntityOf<VariableRef>(cursor, () => new VariableRef(this));
+
+			//case CXCursorKind.CXCursor_BinaryOperator:
+			//	break;
+
+
+			// TODO: ↓の種類を処理する必要がありそう
+			//case CXCursorKind.CXCursor_EnumConstantDecl:
+			//	break;
+			//case CXCursorKind.CXCursor_NullStmt:
+			//	break;
+			//case CXCursorKind.CXCursor_MemberRefExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_PackExpansionExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_UnaryExpr:
+			//	//ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_TemplateTypeParameter:
+			//	ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_NonTypeTemplateParameter:
+			//	ShowCode(cursor);
+			//	break;
+			//case CXCursorKind.CXCursor_TemplateTemplateParameter:
+			//	ShowCode(cursor);
+			//	break;
+
+			default:
+				return null;
+			}
 		}
 
 		static string FullName(CXCursor cursor) {
@@ -806,96 +887,7 @@ namespace ClangerConsole {
 
 			_UsedKinds.Add(cursor.kind);
 
-			switch (cursor.kind) {
-			case CXCursorKind.CXCursor_TypedefDecl:
-			case CXCursorKind.CXCursor_StructDecl:
-			case CXCursorKind.CXCursor_UnionDecl:
-			case CXCursorKind.CXCursor_EnumDecl:
-			case CXCursorKind.CXCursor_ClassDecl:
-			case CXCursorKind.CXCursor_ClassTemplate:
-			case CXCursorKind.CXCursor_ClassTemplatePartialSpecialization:
-				TypeOf(cursor);
-				break;
-
-			// TODO: ↓の種類を処理する必要がありそう
-			//case CXCursorKind.CXCursor_EnumConstantDecl:
-			//	break;
-			//case CXCursorKind.CXCursor_NullStmt:
-			//	break;
-			//case CXCursorKind.CXCursor_MemberRefExpr:
-			//	//ShowCode(cursor);
-			//	break;
-			//case CXCursorKind.CXCursor_PackExpansionExpr:
-			//	//ShowCode(cursor);
-			//	break;
-			//case CXCursorKind.CXCursor_UnaryExpr:
-			//	//ShowCode(cursor);
-			//	break;
-			//case CXCursorKind.CXCursor_TemplateTypeParameter:
-			//	ShowCode(cursor);
-			//	break;
-			//case CXCursorKind.CXCursor_NonTypeTemplateParameter:
-			//	ShowCode(cursor);
-			//	break;
-			//case CXCursorKind.CXCursor_TemplateTemplateParameter:
-			//	ShowCode(cursor);
-			//	break;
-
-			case CXCursorKind.CXCursor_DeclRefExpr:
-				// 変数、関数？参照
-				// ShowCode(cursor);
-				// ShowCode(clang.getCursorDefinition(cursor));
-				break;
-
-			case CXCursorKind.CXCursor_MemberRef:
-			case CXCursorKind.CXCursor_MemberRefExpr:
-				// メンバ変数参照
-				//ShowCode(cursor);
-				//ShowCode(clang.getCursorDefinition(cursor));
-				break;
-
-			case CXCursorKind.CXCursor_FunctionDecl:
-			case CXCursorKind.CXCursor_FunctionTemplate:
-			case CXCursorKind.CXCursor_Constructor:
-			case CXCursorKind.CXCursor_Destructor:
-			case CXCursorKind.CXCursor_CXXMethod:
-			case CXCursorKind.CXCursor_ConversionFunction:
-				FunctionOf(cursor);
-				break;
-
-			case CXCursorKind.CXCursor_VarDecl:
-			case CXCursorKind.CXCursor_FieldDecl:
-				VariableOf(cursor);
-				break;
-
-			case CXCursorKind.CXCursor_ParmDecl:
-				ParamOf(cursor);
-				break;
-
-			case CXCursorKind.CXCursor_Namespace:
-				NamespaceOf(cursor);
-				break;
-
-			case CXCursorKind.CXCursor_CallExpr: {
-					var cursorDef = clang.getCursorDefinition(cursor);
-					if (clang.isInvalid(cursorDef.kind) != 0 || !IsFunction(cursorDef.kind)) {
-						cursorDef = clang.getCursorReferenced(cursor);
-					}
-
-					if (clang.isInvalid(cursorDef.kind) == 0 && IsFunction(cursorDef.kind)) {
-						var loc = new DecodedLocation(cursor, DecodedLocation.Kind.Spelling);
-						var func = FunctionOf(cursorDef);
-						//Console.WriteLine(string.Concat(loc, " : ", func.FullName));
-					}
-				}
-				break;
-
-			case CXCursorKind.CXCursor_BinaryOperator:
-				break;
-
-			default:
-				break;
-			}
+			var entity = EntityOf(cursor);
 
 			return CXChildVisitResult.CXChildVisit_Recurse;
 		}
@@ -905,6 +897,16 @@ namespace ClangerConsole {
 			case CXCursorKind.CXCursor_FunctionDecl:
 			case CXCursorKind.CXCursor_FunctionTemplate:
 			case CXCursorKind.CXCursor_CXXMethod:
+				return true;
+			default:
+				return false;
+			}
+		}
+
+		static bool IsVariable(CXCursorKind kind) {
+			switch (kind) {
+			case CXCursorKind.CXCursor_VarDecl:
+			case CXCursorKind.CXCursor_FieldDecl:
 				return true;
 			default:
 				return false;

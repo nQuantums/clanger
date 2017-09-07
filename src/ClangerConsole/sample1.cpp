@@ -1,10 +1,13 @@
 ﻿//#pragma intrinsic(_InterlockedIncrement)
 //extern "C" long _InterlockedIncrement(long volatile *);
 
-//#include <Windows.h>
+#include <Windows.h>
 //#include <vector>
 //#include "../ClangerConsole/sample.h"
-//#include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
+#include "../../../../../../libs/cpp/JunkCpp/src/Vector.h"
+
+std::_Bool_struct<std::exception_ptr>::
+
 //
 //#define DEF_FUNCS() \
 //	int Func1(int a, int b) { \
