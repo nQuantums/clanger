@@ -43,7 +43,7 @@
         <avalonEdit:TextEditor x:Name="textEditor"
                                Grid.Column="0"
                                Margin="10"
-                               Background="#FF171717"
+                               Background="#FF202020"
                                Foreground="#FFDDDDDD"
                                FontFamily="Consolas"
                                FontSize="10pt"

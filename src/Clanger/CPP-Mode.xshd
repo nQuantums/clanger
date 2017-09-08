@@ -3,8 +3,8 @@
 <!-- converted to AvalonEdit format by Siegfried Pammer in 2010 -->
 <SyntaxDefinition name="C++" extensions=".c;.h;.cc;.cpp;.hpp" xmlns="http://icsharpcode.net/sharpdevelop/syntaxdefinition/2008">
   <Color name="Comment" foreground="#FF77BB77" />
-  <Color name="Character" foreground="#FFBB5555" />
-  <Color name="String" foreground="#FFBB5555" />
+  <Color name="Character" foreground="#FFCC7755" />
+  <Color name="String" foreground="#FFCC7755" />
   <Color name="Preprocessor" foreground="#FFBB77BB" />
   <Color name="Punctuation" foreground="#FFCCCCCC" />
   <Color name="MethodName" foreground="#FFBBAA55" fontWeight="bold" />
