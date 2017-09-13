@@ -24,6 +24,7 @@ namespace Clanger {
 	/// </summary>
 	public partial class MainWindow : MahApps.Metro.Controls.MetroWindow {
 		DispatcherTimer _IconUpdateTimer;
+		List<Analyzer.Entity> _Entities = new List<Analyzer.Entity>();
 
 		public MainWindow() {
 			InitializeComponent();
@@ -39,6 +40,45 @@ namespace Clanger {
 
 
 			ApplyXshd();
+
+
+			Parse();
+		}
+
+		void Parse() {
+			var includeDirs = new string[] {
+				@"C:\Program Files(x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.11.25503\include",
+				@"C:\Program Files(x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\14.11.25503\ATLMFC\include",
+				@"C:\Program Files(x86)\Windows Kits\NETFXSDK\4.6.1\include\um",
+				@"C:\Program Files(x86)\Windows Kits\10\include\10.0.15063.0\ucrt",
+				@"C:\Program Files(x86)\Windows Kits\10\include\10.0.15063.0\shared",
+				@"C:\Program Files(x86)\Windows Kits\10\include\10.0.15063.0\um",
+				@"C:\Program Files(x86)\Windows Kits\10\include\10.0.15063.0\winrt",
+			};
+
+			var additionalOptions = new string[] {
+				"-DUNICODE",
+				"-DWIN32",
+				"-DNDEBUG",
+				"-D_WINDOWS",
+				"-D_USRDLL",
+				"-DASTMCDLL_EXPORTS",
+				"-w",
+				"-Waddress-of-temporary",
+				"-Wwrite-strings",
+				"-Wint-to-pointer-cast",
+				"-Wunused-value",
+			};
+
+			var a = new Analyzer();
+			a.Entities = _Entities;
+
+			a.Parse(
+				@"../../sample1.cpp",
+				includeDirs,
+				additionalOptions);
+
+			this.lvVirtual.ItemsSource = _Entities;
 		}
 
 		void ApplyXshd() {
@@ -65,6 +105,21 @@ namespace Clanger {
 				}
 			};
 			_IconUpdateTimer.Start();
+		}
+
+		private void lvVirtual_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+			var index = this.lvVirtual.SelectedIndex;
+			if (index < 0)
+				return;
+			var entity = _Entities[index];
+			var loc = entity.SpellingLocation;
+			//var doc = this.textEditor.Document;
+			this.textEditor.Load(entity.SpellingLocation.FullPath);
+			this.textEditor.Select((int)loc.Offset, 1);
+			this.textEditor.TextArea.Caret.BringCaretToView();
+
+			//double vertOffset = (Editor.TextArea.TextView.DefaultLineHeight) * Line;
+			//Editor.ScrollToVerticalOffset(vertOffset);
 		}
 	}
 }
