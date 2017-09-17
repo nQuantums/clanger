@@ -30,7 +30,7 @@
 //	}
 //}
 
- struct Struct1 {
+	struct Struct1 {
  	int value;
 	Struct1(int value) {
 		this->value = value;
@@ -38,12 +38,36 @@
  	int operator+(const Struct1& c) const {
  		return this->value + c.value;
  	}
- };
+};
+
+class Foo {
+public:
+	void bar() const;
+	void baz() volatile;
+	void qux() const volatile;
+};
+
+int Func1();
+
+namespace NS1 {
+	int Func1();
+	int Func2();
+}
+
+int Func1() {
+	return 0;
+}
+
+int Func1();
 
 int main() {
 	auto a = Struct1(1);
 	auto b = Struct1(2);
 	auto c = a + b;
+
+	Func1();
+	NS1::Func1();
+	NS1::Func2();
 	// auto s1 = Struct1();
 	// auto s2 = Struct1();
 	// auto c = s1 + s2;
@@ -56,6 +80,12 @@ int main() {
 	return 0;
 }
 
+
+namespace NS1 {
+	int Func1() {
+		return 0;
+	}
+}
 
 //namespace NS1 {
 //	namespace {

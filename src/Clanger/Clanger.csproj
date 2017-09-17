@@ -39,9 +39,6 @@
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ClangSharp">
-      <HintPath>.\ClangSharp.dll</HintPath>
-    </Reference>
     <Reference Include="ICSharpCode.AvalonEdit, Version=5.0.3.0, Culture=neutral, PublicKeyToken=9cc39be672370310, processorArchitecture=MSIL">
       <HintPath>packages\AvalonEdit.5.0.3\lib\Net40\ICSharpCode.AvalonEdit.dll</HintPath>
     </Reference>
@@ -139,6 +136,12 @@
     <Content Include="sample.h" />
     <Content Include="sample1.cpp" />
     <Content Include="sample2.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ClangSharp\ClangSharp.csproj">
+      <Project>{6091b9f6-d75e-4457-bf5b-89076fcb262b}</Project>
+      <Name>ClangSharp</Name>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

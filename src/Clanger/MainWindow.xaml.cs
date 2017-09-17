@@ -24,7 +24,10 @@ namespace Clanger {
 	/// </summary>
 	public partial class MainWindow : MahApps.Metro.Controls.MetroWindow {
 		DispatcherTimer _IconUpdateTimer;
-		List<Analyzer.Entity> _Entities = new List<Analyzer.Entity>();
+		Analyzer _Analyzer;
+		List<Analyzer.LightEntity> _Entities = new List<Analyzer.LightEntity>();
+		Dictionary<Analyzer.CursorKey, int> _EntityIndices = new Dictionary<Analyzer.CursorKey, int>();
+		string _LastSourceFile;
 
 		public MainWindow() {
 			InitializeComponent();
@@ -70,13 +73,18 @@ namespace Clanger {
 				"-Wunused-value",
 			};
 
-			var a = new Analyzer();
-			a.Entities = _Entities;
+			_Analyzer = new Analyzer();
+			_Analyzer.Entities = _Entities;
 
-			a.Parse(
+			_Analyzer.Parse(
 				@"../../sample1.cpp",
 				includeDirs,
 				additionalOptions);
+
+			var entities = _Entities;
+			for (int i = 0, n = entities.Count; i < n; i++) {
+				_EntityIndices[new Analyzer.CursorKey(entities[i].Cursor)] = i;
+			}
 
 			this.lvVirtual.ItemsSource = _Entities;
 		}
@@ -113,13 +121,94 @@ namespace Clanger {
 				return;
 			var entity = _Entities[index];
 			var loc = entity.SpellingLocation;
-			//var doc = this.textEditor.Document;
-			this.textEditor.Load(entity.SpellingLocation.FullPath);
-			this.textEditor.Select((int)loc.Offset, 1);
-			this.textEditor.TextArea.Caret.BringCaretToView();
+			if (!string.Equals(loc.FullPath, _LastSourceFile)) {
+				_LastSourceFile = loc.FullPath;
+				if (string.IsNullOrEmpty(_LastSourceFile))
+					this.textEditor.Clear();
+				else
+					this.textEditor.Load(_LastSourceFile);
+			}
 
-			//double vertOffset = (Editor.TextArea.TextView.DefaultLineHeight) * Line;
-			//Editor.ScrollToVerticalOffset(vertOffset);
+			if (!string.IsNullOrEmpty(_LastSourceFile)) {
+				var doc = this.textEditor.Document;
+				this.textEditor.Select(doc.GetOffset((int)loc.Line, (int)loc.Column), 1);
+				this.textEditor.TextArea.Caret.BringCaretToView();
+			}
+		}
+
+		private void lvVirtual_PreviewMouseDown(object sender, MouseButtonEventArgs e) {
+			if(e.LeftButton == MouseButtonState.Pressed && (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))) {
+				var item = ItemsControl.ContainerFromElement(this.lvVirtual, e.OriginalSource as DependencyObject) as ListBoxItem;
+				if (item != null) {
+					var entity = item.DataContext as Analyzer.LightEntity;
+					if (entity != null) {
+						if (Select(entity.DefinitionCursor)) {
+							e.Handled = true;
+							return;
+						}
+						if (Select(entity.ReferencedCursor)) {
+							e.Handled = true;
+							return;
+						}
+					}
+				}
+			}
+		}
+
+		Analyzer.LightEntity GetSelectedEntity() {
+			return this.lvVirtual.SelectedItem as Analyzer.LightEntity;
+		}
+
+		bool Select(ClangSharp.CXCursor cursor) {
+			if (ClangSharp.clang.isInvalid(cursor.kind) != 0)
+				return false;
+
+			var key = new Analyzer.CursorKey(cursor);
+			int index;
+
+			if (_EntityIndices.TryGetValue(key, out index)) {
+				this.lvVirtual.SelectedIndex = index;
+				//this.lvVirtual.ScrollIntoView(_Entities[index]);
+				return true;
+			} else {
+				return false;
+			}
+		}
+
+		private void Definition_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.DefinitionCursor);
+		}
+
+		private void Referenced_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.ReferencedCursor);
+		}
+
+		private void Canonical_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.CanonicalCursor);
+		}
+
+		private void SemanticParent_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.SemanticParentCursor);
+		}
+
+		private void LexicalParent_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.LexicalParentCursor);
+		}
+
+		private void SpecializedTemplate_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.SpecializedTemplateCursor);
 		}
 	}
 }

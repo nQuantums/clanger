@@ -11,15 +11,6 @@ namespace Clanger {
 	public class Analyzer : IDisposable {
 		const string NameScopeDelimiter = ".";
 
-		#region PInvokes
-		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_Cursor_getOperatorString")]
-		public static extern CXString Cursor_getOperatorString(CXCursor param0);
-		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_Cursor_getLiteralString")]
-		public static extern CXString Cursor_getLiteralString(CXCursor param0);
-		[DllImport("libclang", CallingConvention = CallingConvention.Cdecl, EntryPoint = "clang_disposeTokens")]
-		private static extern void disposeTokens(CXTranslationUnit tu, IntPtr tokens, uint numTokens);
-		#endregion
-
 		#region クラスなど
 		public struct TranslationUnitKey {
 			public CXTranslationUnit TU;
@@ -375,6 +366,113 @@ namespace Clanger {
 			}
 		}
 
+		public class LightEntity {
+			public CXCursor Cursor;
+			public int Depth;
+
+			public DecodedLocation ExpansionLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.Expansion);
+			public DecodedLocation PresumedLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.Presumed);
+			public DecodedLocation SpellingLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.Spelling);
+			public DecodedLocation FileLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.File);
+			public DecodedLocation InstantiateLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.Instantiate);
+
+			public string Name {
+				get {
+					return clang.getCursorDisplayName(this.Cursor).ToString();
+				}
+			}
+
+			public string DisplayName {
+				get {
+					var kindStr = this.Cursor.kind.ToString();
+					if (kindStr.StartsWith("CXCursor_"))
+						kindStr = kindStr.Substring(9);
+					//var name = FullName(this.Cursor); // this.Name;
+					var name = clang.getCursorUSR(this.Cursor).ToString(); // this.Name;
+					switch (this.Cursor.kind) {
+					case CXCursorKind.CXCursor_UnaryOperator:
+					case CXCursorKind.CXCursor_BinaryOperator:
+					case CXCursorKind.CXCursor_CompoundAssignOperator:
+					case CXCursorKind.CXCursor_ConditionalOperator:
+						name = clang.Cursor_getOperatorString(this.Cursor).ToString();
+						break;
+					case CXCursorKind.CXCursor_CharacterLiteral:
+					case CXCursorKind.CXCursor_StringLiteral:
+					case CXCursorKind.CXCursor_FloatingLiteral:
+					case CXCursorKind.CXCursor_IntegerLiteral:
+						name = clang.Cursor_getLiteralString(this.Cursor).ToString();
+						break;
+					}
+					var flags = new StringBuilder();
+					if (this.IsDeclaration) { if (flags.Length != 0) flags.Append(", "); flags.Append("decl"); }
+					if (this.IsDefinition) { if (flags.Length != 0) flags.Append(", "); flags.Append("def"); }
+					if (this.IsReference) { if (flags.Length != 0) flags.Append(", "); flags.Append("ref"); }
+					if (this.IsAttribute) { if (flags.Length != 0) flags.Append(", "); flags.Append("atr"); }
+					if (this.IsAnonymous) { if (flags.Length != 0) flags.Append(", "); flags.Append("ano"); }
+					if (this.IsBitField) { if (flags.Length != 0) flags.Append(", "); flags.Append("bit"); }
+					if (this.IsDynamicCall) { if (flags.Length != 0) flags.Append(", "); flags.Append("dyn"); }
+					if (this.IsVariadic) { if (flags.Length != 0) flags.Append(", "); flags.Append("vari"); }
+					if (this.IsMutable) { if (flags.Length != 0) flags.Append(", "); flags.Append("mut"); }
+					if (this.IsConst) { if (flags.Length != 0) flags.Append(", "); flags.Append("const"); }
+					if (this.IsVirtualBase) { if (flags.Length != 0) flags.Append(", "); flags.Append("virtual base"); }
+					if (this.IsVirtual) { if (flags.Length != 0) flags.Append(", "); flags.Append("virtual"); }
+					if (this.IsPureVirtual) { if (flags.Length != 0) flags.Append(", "); flags.Append("pure virtual"); }
+					if (this.IsStatic) { if (flags.Length != 0) flags.Append(", "); flags.Append("static"); }
+					if (this.IsPreprocessing) { if (flags.Length != 0) flags.Append(", "); flags.Append("prepro"); }
+					if (this.IsStatement) { if (flags.Length != 0) flags.Append(", "); flags.Append("statement"); }
+					if (this.IsTranslationUnit) { if (flags.Length != 0) flags.Append(", "); flags.Append("tu"); }
+					if (this.IsUnexposed) { if (flags.Length != 0) flags.Append(", "); flags.Append("unex"); }
+					if (this.IsExpression) { if (flags.Length != 0) flags.Append(", "); flags.Append("expr"); }
+					return string.Concat(new string(' ', this.Depth * 4), kindStr, ": ", name, flags.Length != 0 ? string.Concat(" [", flags.ToString(), "]") : "");
+				}
+			}
+
+			public bool IsDeclaration => clang.isDeclaration(this.Cursor.kind) != 0;
+			public bool IsDefinition => clang.isCursorDefinition(this.Cursor) != 0;
+			public bool IsReference => clang.isReference(this.Cursor.kind) != 0;
+			public bool IsAttribute => clang.isAttribute(this.Cursor.kind) != 0;
+			public bool IsAnonymous => clang.Cursor_isAnonymous(this.Cursor) != 0;
+			public bool IsBitField => clang.Cursor_isBitField(this.Cursor) != 0;
+			public bool IsDynamicCall => clang.Cursor_isDynamicCall(this.Cursor) != 0;
+			public bool IsVariadic => clang.Cursor_isVariadic(this.Cursor) != 0;
+			public bool IsMutable => clang.CXXField_isMutable(this.Cursor) != 0;
+			public bool IsConst => clang.CXXMethod_isConst(this.Cursor) != 0;
+			public bool IsPureVirtual => clang.CXXMethod_isPureVirtual(this.Cursor) != 0;
+			public bool IsStatic =>clang.CXXMethod_isStatic(this.Cursor) != 0;
+			public bool IsVirtual => clang.CXXMethod_isVirtual(this.Cursor) != 0;
+			public bool IsPreprocessing => clang.isPreprocessing(this.Cursor.kind) != 0;
+			public bool IsStatement => clang.isStatement(this.Cursor.kind) != 0;
+			public bool IsTranslationUnit => clang.isTranslationUnit(this.Cursor.kind) != 0;
+			public bool IsUnexposed => clang.isUnexposed(this.Cursor.kind) != 0;
+			public bool IsVirtualBase => clang.isVirtualBase(this.Cursor) != 0;
+			public bool IsExpression => clang.isExpression(this.Cursor.kind) != 0;
+
+			public CXCursor DefinitionCursor => clang.getCursorDefinition(this.Cursor);
+			public CXCursor ReferencedCursor => clang.getCursorReferenced(this.Cursor);
+			public CXCursor CanonicalCursor => clang.getCanonicalCursor(this.Cursor);
+			public CXCursor SemanticParentCursor => clang.getCursorSemanticParent(this.Cursor);
+			public CXCursor LexicalParentCursor => clang.getCursorLexicalParent(this.Cursor);
+			public CXCursor SpecializedTemplateCursor => clang.getSpecializedCursorTemplate(this.Cursor);
+
+			public Tuple<IntPtr, IntPtr, uint, uint, uint, uint> DefinitionSpellingAndExtent {
+				get {
+					IntPtr startBuf;
+					IntPtr endBuf;
+					uint startLine;
+					uint startColumn;
+					uint endLine;
+					uint endColumn;
+					clang.getDefinitionSpellingAndExtent(this.Cursor, out startBuf, out endBuf, out startLine, out startColumn, out endLine, out endColumn);
+					return new Tuple<IntPtr, IntPtr, uint, uint, uint, uint>(startBuf, endBuf, startLine, startColumn, endLine, endColumn);
+				}
+			}
+
+			public LightEntity(CXCursor cursor, int depth) {
+				this.Cursor = cursor;
+				this.Depth = depth;
+			}
+		}
+
 		/// <summary>
 		/// ソースコード上の何かに対応するエンティティ
 		/// </summary>
@@ -383,7 +481,9 @@ namespace Clanger {
 
 			Entity _Parent = InitialParent;
 
-			public string Name { get; set; }
+			public string Name;
+			public int Depth;
+			public CXCursorKind Kind;
 			public Analyzer Owner;
 			public HashSet<CursorKey> Cursors = new HashSet<CursorKey>();
 			public LocationPath LocationPath;
@@ -430,6 +530,12 @@ namespace Clanger {
 					} while (e != null);
 					path.Reverse();
 					return path.ToArray();
+				}
+			}
+
+			public string DisplayName {
+				get {
+					return string.Concat(new string(' ', this.Depth), this.Kind.ToString().Substring(9), " : ", this.Name);
 				}
 			}
 
@@ -648,6 +754,11 @@ namespace Clanger {
 			public Translation(CXTranslationUnit tu, File sourceFile) {
 				this.TranslationUnit = tu;
 				this.SourceFile = sourceFile;
+				//clang.findReferencesInFile
+				//clang.index_getClientEntity()
+
+				//clang.getFileUniqueID
+				//clang.getLocation(tu, )
 			}
 
 			#region IDisposable Support
@@ -690,7 +801,9 @@ namespace Clanger {
 		Dictionary<File, Translation> _TranslationUnits = new Dictionary<File, Translation>();
 		Translation _CurrentTranslation;
 		HashSet<CXCursorKind> _UsedKinds = new HashSet<CXCursorKind>();
-		public List<Entity> Entities = new List<Entity>(); // TODO: 削除する
+		public List<LightEntity> Entities = new List<LightEntity>(); // TODO: 削除する
+		int _Depth = 1;
+		Dictionary<string, CXCursor> _UsrCursors = new Dictionary<string, CXCursor>();
 		#endregion
 
 		#region 公開メソッド
@@ -766,7 +879,7 @@ namespace Clanger {
 				}
 				return tokens;
 			} finally {
-				disposeTokens(tu, pTokens, numTokens);
+				clang.disposeTokens(tu, pTokens, numTokens);
 			}
 		}
 
@@ -782,8 +895,8 @@ namespace Clanger {
 				var t = _EntityBinder.Entity<T>(cursor, creator);
 				if (t == null)
 					return null;
+				t.Depth = _Depth;
 				_CursorToEntity.Add(key, t);
-				this.Entities.Add(t); // TODO: 消す
 				return t;
 			}
 		}
@@ -873,7 +986,6 @@ namespace Clanger {
 			if (path.Length != 0)
 				return string.Concat(path, NameScopeDelimiter, name);
 			return name;
-			//return string.Concat(path, new DecodedLocation(cursor), "\n", name, "\n");
 		}
 
 		static void ShowCode(CXCursor cursor) {
@@ -888,11 +1000,25 @@ namespace Clanger {
 			//	var loc1 = new DecodedLocation(clang.getCursorReferenced(cursor), DecodedLocation.Kind.Spelling);
 			//}
 
-			_UsedKinds.Add(cursor.kind);
+			//_UsedKinds.Add(cursor.kind);
 
-			var entity = EntityOf(cursor);
+			//_Kind = cursor.kind;
+			//var entity = EntityOf(cursor);
+			var usr = clang.getCursorUSR(cursor).ToString();
+			if (usr.Length != 0)
+				_UsrCursors[usr] = cursor;
 
-			return CXChildVisitResult.CXChildVisit_Recurse;
+			this.Entities.Add(new LightEntity(cursor, _Depth));
+
+			_Depth++;
+			clang.visitChildren(cursor, new CXCursorVisitor(this.VisitChild), new CXClientData());
+			_Depth--;
+
+
+			//return CXChildVisitResult.CXChildVisit_Recurse;
+
+			// 次の要素へ移動
+			return CXChildVisitResult.CXChildVisit_Continue;
 		}
 
 		static bool IsFunction(CXCursorKind kind) {
