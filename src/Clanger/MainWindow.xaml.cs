@@ -87,6 +87,8 @@ namespace Clanger {
 			}
 
 			this.lvVirtual.ItemsSource = _Entities;
+
+			this.outputText.Text = _Analyzer.Output;
 		}
 
 		void ApplyXshd() {
@@ -137,16 +139,22 @@ namespace Clanger {
 		}
 
 		private void lvVirtual_PreviewMouseDown(object sender, MouseButtonEventArgs e) {
-			if(e.LeftButton == MouseButtonState.Pressed && (Keyboard.IsKeyDown(Key.LeftCtrl) || Keyboard.IsKeyDown(Key.RightCtrl))) {
+			var leftCtrl = Keyboard.IsKeyDown(Key.LeftCtrl);
+			var rightCtrl = Keyboard.IsKeyDown(Key.RightCtrl);
+			if (e.LeftButton == MouseButtonState.Pressed && (leftCtrl || rightCtrl)) {
 				var item = ItemsControl.ContainerFromElement(this.lvVirtual, e.OriginalSource as DependencyObject) as ListBoxItem;
 				if (item != null) {
 					var entity = item.DataContext as Analyzer.LightEntity;
 					if (entity != null) {
-						if (Select(entity.DefinitionCursor)) {
+						if (Select(entity.DefinitionCursor, rightCtrl)) {
 							e.Handled = true;
 							return;
 						}
-						if (Select(entity.ReferencedCursor)) {
+						if (Select(entity.ReferencedCursor, rightCtrl)) {
+							e.Handled = true;
+							return;
+						}
+						if (Select(entity.TemplateDefinitionCursor, rightCtrl)) {
 							e.Handled = true;
 							return;
 						}
@@ -159,7 +167,7 @@ namespace Clanger {
 			return this.lvVirtual.SelectedItem as Analyzer.LightEntity;
 		}
 
-		bool Select(ClangSharp.CXCursor cursor) {
+		bool Select(ClangSharp.CXCursor cursor, bool scroll = false) {
 			if (ClangSharp.clang.isInvalid(cursor.kind) != 0)
 				return false;
 
@@ -168,7 +176,8 @@ namespace Clanger {
 
 			if (_EntityIndices.TryGetValue(key, out index)) {
 				this.lvVirtual.SelectedIndex = index;
-				//this.lvVirtual.ScrollIntoView(_Entities[index]);
+				if (scroll)
+					this.lvVirtual.ScrollIntoView(_Entities[index]);
 				return true;
 			} else {
 				return false;
@@ -179,6 +188,12 @@ namespace Clanger {
 			var entity = GetSelectedEntity();
 			if (entity != null)
 				Select(entity.DefinitionCursor);
+		}
+
+		private void TemplateDefinition_Click(object sender, RoutedEventArgs e) {
+			var entity = GetSelectedEntity();
+			if (entity != null)
+				Select(entity.TemplateDefinitionCursor);
 		}
 
 		private void Referenced_Click(object sender, RoutedEventArgs e) {

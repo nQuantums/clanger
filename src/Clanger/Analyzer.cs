@@ -126,27 +126,15 @@ namespace Clanger {
 			}
 
 			public override int GetHashCode() {
-				return this.Cursor.data0.GetHashCode() ^ this.Cursor.GetHashCode() ^ this.Cursor.GetHashCode();
+				return (int)clang.hashCursor(this.Cursor);
 			}
 
 			public static bool operator ==(CursorKey a, CursorKey b) {
-				if (a.Cursor.data0 != b.Cursor.data0)
-					return false;
-				if (a.Cursor.data1 != b.Cursor.data1)
-					return false;
-				if (a.Cursor.data2 != b.Cursor.data2)
-					return false;
-				return true;
+				return clang.equalCursors(a.Cursor, b.Cursor) != 0;
 			}
 
 			public static bool operator !=(CursorKey a, CursorKey b) {
-				if (a.Cursor.data0 != b.Cursor.data0)
-					return true;
-				if (a.Cursor.data1 != b.Cursor.data1)
-					return true;
-				if (a.Cursor.data2 != b.Cursor.data2)
-					return true;
-				return false;
+				return clang.equalCursors(a.Cursor, b.Cursor) == 0;
 			}
 		}
 
@@ -376,19 +364,15 @@ namespace Clanger {
 			public DecodedLocation FileLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.File);
 			public DecodedLocation InstantiateLocation => new DecodedLocation(this.Cursor, DecodedLocation.Kind.Instantiate);
 
-			public string Name {
-				get {
-					return clang.getCursorDisplayName(this.Cursor).ToString();
-				}
-			}
+			public string Name => clang.getCursorDisplayName(this.Cursor).ToString();
+			public string USR => clang.getCursorUSR(this.Cursor).ToString();
 
 			public string DisplayName {
 				get {
 					var kindStr = this.Cursor.kind.ToString();
 					if (kindStr.StartsWith("CXCursor_"))
 						kindStr = kindStr.Substring(9);
-					//var name = FullName(this.Cursor); // this.Name;
-					var name = clang.getCursorUSR(this.Cursor).ToString(); // this.Name;
+					var name = FullName(this.Cursor); // this.Name;
 					switch (this.Cursor.kind) {
 					case CXCursorKind.CXCursor_UnaryOperator:
 					case CXCursorKind.CXCursor_BinaryOperator:
@@ -453,6 +437,7 @@ namespace Clanger {
 			public CXCursor SemanticParentCursor => clang.getCursorSemanticParent(this.Cursor);
 			public CXCursor LexicalParentCursor => clang.getCursorLexicalParent(this.Cursor);
 			public CXCursor SpecializedTemplateCursor => clang.getSpecializedCursorTemplate(this.Cursor);
+			public CXCursor TemplateDefinitionCursor => clang.getCursorDefinition(clang.getCursor(clang.Cursor_getTranslationUnit(this.Cursor), clang.getCursorLocation(clang.getCursorDefinition(this.Cursor))));
 
 			public Tuple<IntPtr, IntPtr, uint, uint, uint, uint> DefinitionSpellingAndExtent {
 				get {
@@ -643,23 +628,16 @@ namespace Clanger {
 			}
 		}
 
-		public class Diagnostic {
-			public uint Category;
-			public string CategoryName {
-				get {
-					return clang.getDiagnosticCategoryName(this.Category).ToString();
-				}
-			}
-			public string CategoryText;
-			public string Text;
-			public DecodedLocation Location;
+		public class Diagnostic : IDisposable {
+			public CXDiagnostic Core;
+			public uint Category => clang.getDiagnosticCategory(this.Core);
+			public string CategoryName => clang.getDiagnosticCategoryName(this.Category).ToString();
+			public string CategoryText => clang.getDiagnosticCategoryText(this.Core).ToString();
+			public string Text => clang.formatDiagnostic(this.Core, unchecked((uint)-1)).ToString();
+			public DecodedLocation Location => new DecodedLocation(clang.getDiagnosticLocation(this.Core), DecodedLocation.Kind.Presumed);
 
 			public Diagnostic(CXDiagnostic d) {
-				this.Category = clang.getDiagnosticCategory(d);
-				this.CategoryText = clang.getDiagnosticCategoryText(d).ToString();
-				this.Text = clang.formatDiagnostic(d, unchecked((uint)-1)).ToString();
-				this.Location = new DecodedLocation(clang.getDiagnosticLocation(d), DecodedLocation.Kind.Presumed);
-				clang.disposeDiagnostic(d);
+				this.Core = d;
 			}
 
 			public static Diagnostic[] CreateFrom(CXTranslationUnit tu) {
@@ -674,7 +652,28 @@ namespace Clanger {
 				return this.Text;
 			}
 
-			// TODO: clang.disposeDiagnostic 呼び出す必要ありそう
+			#region IDisposable Support
+			private bool disposedValue = false; // 重複する呼び出しを検出するには
+
+			protected virtual void Dispose(bool disposing) {
+				if (!disposedValue) {
+					clang.disposeDiagnostic(this.Core);
+					disposedValue = true;
+				}
+			}
+
+			~Diagnostic() {
+				// このコードを変更しないでください。クリーンアップ コードを上の Dispose(bool disposing) に記述します。
+				Dispose(false);
+			}
+
+			// このコードは、破棄可能なパターンを正しく実装できるように追加されました。
+			public void Dispose() {
+				// このコードを変更しないでください。クリーンアップ コードを上の Dispose(bool disposing) に記述します。
+				Dispose(true);
+				GC.SuppressFinalize(this);
+			}
+			#endregion
 		}
 
 		public class DecodedLocation {
@@ -750,6 +749,7 @@ namespace Clanger {
 		public class Translation : IDisposable {
 			public CXTranslationUnit TranslationUnit;
 			public File SourceFile;
+			public Diagnostic[] Diagnostics;
 
 			public Translation(CXTranslationUnit tu, File sourceFile) {
 				this.TranslationUnit = tu;
@@ -772,6 +772,12 @@ namespace Clanger {
 
 					// アンマネージ リソース (アンマネージ オブジェクト) を解放し、下のファイナライザーをオーバーライドします。
 					// 大きなフィールドを null に設定します。
+					if (this.Diagnostics != null) {
+						foreach (var d in this.Diagnostics) {
+							d.Dispose();
+						}
+						this.Diagnostics = null;
+					}
 					clang.disposeTranslationUnit(this.TranslationUnit);
 					this.SourceFile = null;
 
@@ -803,12 +809,18 @@ namespace Clanger {
 		HashSet<CXCursorKind> _UsedKinds = new HashSet<CXCursorKind>();
 		public List<LightEntity> Entities = new List<LightEntity>(); // TODO: 削除する
 		int _Depth = 1;
-		Dictionary<string, CXCursor> _UsrCursors = new Dictionary<string, CXCursor>();
+		StringBuilder _Output = new StringBuilder();
+		CXCursorVisitor _CursorVisitor;
+		#endregion
+
+		#region プロパティ
+		public string Output => _Output.ToString();
 		#endregion
 
 		#region 公開メソッド
 		public Analyzer() {
 			_Index = clang.createIndex(0, 0);
+			_CursorVisitor = new CXCursorVisitor(this.VisitChild);
 		}
 
 		public void Parse(string sourceFile, string[] includeDirs = null, string[] additionalOptions = null, bool msCompati = true) {
@@ -836,17 +848,21 @@ namespace Clanger {
 			}
 
 			var erro = clang.parseTranslationUnit2(_Index, sourceFile, options.ToArray(), options.Count, out ufile, 0, 0, out tu);
-			var diags = Diagnostic.CreateFrom(tu);
-			foreach(var d in diags) {
-				Console.WriteLine(d);
+
+			_CurrentTranslation = new Translation(tu, file);
+			_CurrentTranslation.Diagnostics = Diagnostic.CreateFrom(tu);
+			_TranslationUnits[file] = _CurrentTranslation;
+
+			foreach (var d in _CurrentTranslation.Diagnostics) {
+				_Output.AppendLine(d.ToString());
 			}
+
 
 			// 本当はここでエラーチェックが好ましい
 			var cursor = clang.getTranslationUnitCursor(tu);
 
-			_CurrentTranslation = new Translation(tu, file);
 
-			clang.visitChildren(cursor, this.VisitChild, new CXClientData());
+			clang.visitChildren(cursor, _CursorVisitor, new CXClientData());
 
 
 			//foreach(var e in new List<Entity>(_CursorToEntity.Values)) {
@@ -859,8 +875,6 @@ namespace Clanger {
 			foreach(var kind in kinds) {
 				Console.WriteLine(kind);
 			}
-
-			_TranslationUnits[file] = _CurrentTranslation;
 		}
 		#endregion
 
@@ -1004,14 +1018,11 @@ namespace Clanger {
 
 			//_Kind = cursor.kind;
 			//var entity = EntityOf(cursor);
-			var usr = clang.getCursorUSR(cursor).ToString();
-			if (usr.Length != 0)
-				_UsrCursors[usr] = cursor;
 
 			this.Entities.Add(new LightEntity(cursor, _Depth));
 
 			_Depth++;
-			clang.visitChildren(cursor, new CXCursorVisitor(this.VisitChild), new CXClientData());
+			clang.visitChildren(cursor, _CursorVisitor, new CXClientData());
 			_Depth--;
 
 

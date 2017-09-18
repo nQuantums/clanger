@@ -63,6 +63,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
@@ -71,6 +72,7 @@
 
         <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Stretch" Height="Auto">
             <Button Content="Definition" Click="Definition_Click"/>
+            <Button Content="TemplateDefinition" Click="TemplateDefinition_Click"/>
             <Button Content="Referenced" Click="Referenced_Click"/>
             <Button Content="Canonical" Click="Canonical_Click"/>
             <Button Content="SemanticParent" Click="SemanticParent_Click"/>
@@ -113,5 +115,14 @@
                                SyntaxHighlighting="XML"
                                TextChanged="xsdEditor_TextChanged"/>
         </Grid>
+
+        <avalonEdit:TextEditor x:Name="outputText"
+                               Grid.Row="2"
+                               Grid.ColumnSpan="2"
+                               Margin="10"
+                               Background="#FF171717"
+                               Foreground="#FFDDDDDD"
+                               FontFamily="Consolas"
+                               FontSize="10pt"/>
     </Grid>
 </Controls:MetroWindow>
