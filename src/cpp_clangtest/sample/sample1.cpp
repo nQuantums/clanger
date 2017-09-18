@@ -5,6 +5,7 @@
 //#include <vector>
 //#include "../ClangerConsole/sample.h"
 #include "../../../../../../../libs/cpp/JunkCpp/src/Vector.h"
+#include "sample.h"
 
 //
 //#define DEF_FUNCS() \
@@ -95,6 +96,9 @@ int main() {
 
 
 	//Namespace1::Struct2::InlineMethod1(1);
+
+	Sample2Func();
+
 	return 0;
 }
 

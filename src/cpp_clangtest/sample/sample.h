@@ -12,3 +12,5 @@ namespace Namespace1 {
 		}
 	};
 }
+
+void Sample2Func();

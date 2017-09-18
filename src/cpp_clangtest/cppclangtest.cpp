@@ -24,135 +24,135 @@
 
 #pragma comment(lib, "Version.lib")
 
-#pragma comment(lib, "LLVMAArch64AsmParser.lib")
-#pragma comment(lib, "LLVMAArch64AsmPrinter.lib")
-#pragma comment(lib, "LLVMAArch64CodeGen.lib")
-#pragma comment(lib, "LLVMAArch64Desc.lib")
-#pragma comment(lib, "LLVMAArch64Disassembler.lib")
-#pragma comment(lib, "LLVMAArch64Info.lib")
-#pragma comment(lib, "LLVMAArch64Utils.lib")
-#pragma comment(lib, "LLVMAMDGPUAsmParser.lib")
-#pragma comment(lib, "LLVMAMDGPUAsmPrinter.lib")
-#pragma comment(lib, "LLVMAMDGPUCodeGen.lib")
-#pragma comment(lib, "LLVMAMDGPUDesc.lib")
-#pragma comment(lib, "LLVMAMDGPUDisassembler.lib")
-#pragma comment(lib, "LLVMAMDGPUInfo.lib")
-#pragma comment(lib, "LLVMAMDGPUUtils.lib")
-#pragma comment(lib, "LLVMAnalysis.lib")
-#pragma comment(lib, "LLVMARMAsmParser.lib")
-#pragma comment(lib, "LLVMARMAsmPrinter.lib")
-#pragma comment(lib, "LLVMARMCodeGen.lib")
-#pragma comment(lib, "LLVMARMDesc.lib")
-#pragma comment(lib, "LLVMARMDisassembler.lib")
-#pragma comment(lib, "LLVMARMInfo.lib")
-#pragma comment(lib, "LLVMAsmParser.lib")
-#pragma comment(lib, "LLVMAsmPrinter.lib")
+//#pragma comment(lib, "LLVMAArch64AsmParser.lib")
+//#pragma comment(lib, "LLVMAArch64AsmPrinter.lib")
+//#pragma comment(lib, "LLVMAArch64CodeGen.lib")
+//#pragma comment(lib, "LLVMAArch64Desc.lib")
+//#pragma comment(lib, "LLVMAArch64Disassembler.lib")
+//#pragma comment(lib, "LLVMAArch64Info.lib")
+//#pragma comment(lib, "LLVMAArch64Utils.lib")
+//#pragma comment(lib, "LLVMAMDGPUAsmParser.lib")
+//#pragma comment(lib, "LLVMAMDGPUAsmPrinter.lib")
+//#pragma comment(lib, "LLVMAMDGPUCodeGen.lib")
+//#pragma comment(lib, "LLVMAMDGPUDesc.lib")
+//#pragma comment(lib, "LLVMAMDGPUDisassembler.lib")
+//#pragma comment(lib, "LLVMAMDGPUInfo.lib")
+//#pragma comment(lib, "LLVMAMDGPUUtils.lib")
+//#pragma comment(lib, "LLVMAnalysis.lib")
+//#pragma comment(lib, "LLVMARMAsmParser.lib")
+//#pragma comment(lib, "LLVMARMAsmPrinter.lib")
+//#pragma comment(lib, "LLVMARMCodeGen.lib")
+//#pragma comment(lib, "LLVMARMDesc.lib")
+//#pragma comment(lib, "LLVMARMDisassembler.lib")
+//#pragma comment(lib, "LLVMARMInfo.lib")
+//#pragma comment(lib, "LLVMAsmParser.lib")
+//#pragma comment(lib, "LLVMAsmPrinter.lib")
 #pragma comment(lib, "LLVMBinaryFormat.lib")
 #pragma comment(lib, "LLVMBitReader.lib")
-#pragma comment(lib, "LLVMBitWriter.lib")
-#pragma comment(lib, "LLVMBPFAsmPrinter.lib")
-#pragma comment(lib, "LLVMBPFCodeGen.lib")
-#pragma comment(lib, "LLVMBPFDesc.lib")
-#pragma comment(lib, "LLVMBPFDisassembler.lib")
-#pragma comment(lib, "LLVMBPFInfo.lib")
-#pragma comment(lib, "LLVMCodeGen.lib")
+//#pragma comment(lib, "LLVMBitWriter.lib")
+//#pragma comment(lib, "LLVMBPFAsmPrinter.lib")
+//#pragma comment(lib, "LLVMBPFCodeGen.lib")
+//#pragma comment(lib, "LLVMBPFDesc.lib")
+//#pragma comment(lib, "LLVMBPFDisassembler.lib")
+//#pragma comment(lib, "LLVMBPFInfo.lib")
+//#pragma comment(lib, "LLVMCodeGen.lib")
 #pragma comment(lib, "LLVMCore.lib")
-#pragma comment(lib, "LLVMCoroutines.lib")
-#pragma comment(lib, "LLVMCoverage.lib")
-#pragma comment(lib, "LLVMDebugInfoCodeView.lib")
-#pragma comment(lib, "LLVMDebugInfoDWARF.lib")
-#pragma comment(lib, "LLVMDebugInfoMSF.lib")
-#pragma comment(lib, "LLVMDebugInfoPDB.lib")
-#pragma comment(lib, "LLVMDemangle.lib")
-#pragma comment(lib, "LLVMDlltoolDriver.lib")
-#pragma comment(lib, "LLVMExecutionEngine.lib")
-#pragma comment(lib, "LLVMGlobalISel.lib")
-#pragma comment(lib, "LLVMHexagonAsmParser.lib")
-#pragma comment(lib, "LLVMHexagonCodeGen.lib")
-#pragma comment(lib, "LLVMHexagonDesc.lib")
-#pragma comment(lib, "LLVMHexagonDisassembler.lib")
-#pragma comment(lib, "LLVMHexagonInfo.lib")
-#pragma comment(lib, "LLVMInstCombine.lib")
-#pragma comment(lib, "LLVMInstrumentation.lib")
-#pragma comment(lib, "LLVMInterpreter.lib")
-#pragma comment(lib, "LLVMipo.lib")
-#pragma comment(lib, "LLVMIRReader.lib")
-#pragma comment(lib, "LLVMLanaiAsmParser.lib")
-#pragma comment(lib, "LLVMLanaiAsmPrinter.lib")
-#pragma comment(lib, "LLVMLanaiCodeGen.lib")
-#pragma comment(lib, "LLVMLanaiDesc.lib")
-#pragma comment(lib, "LLVMLanaiDisassembler.lib")
-#pragma comment(lib, "LLVMLanaiInfo.lib")
+//#pragma comment(lib, "LLVMCoroutines.lib")
+//#pragma comment(lib, "LLVMCoverage.lib")
+//#pragma comment(lib, "LLVMDebugInfoCodeView.lib")
+//#pragma comment(lib, "LLVMDebugInfoDWARF.lib")
+//#pragma comment(lib, "LLVMDebugInfoMSF.lib")
+//#pragma comment(lib, "LLVMDebugInfoPDB.lib")
+//#pragma comment(lib, "LLVMDemangle.lib")
+//#pragma comment(lib, "LLVMDlltoolDriver.lib")
+//#pragma comment(lib, "LLVMExecutionEngine.lib")
+//#pragma comment(lib, "LLVMGlobalISel.lib")
+//#pragma comment(lib, "LLVMHexagonAsmParser.lib")
+//#pragma comment(lib, "LLVMHexagonCodeGen.lib")
+//#pragma comment(lib, "LLVMHexagonDesc.lib")
+//#pragma comment(lib, "LLVMHexagonDisassembler.lib")
+//#pragma comment(lib, "LLVMHexagonInfo.lib")
+//#pragma comment(lib, "LLVMInstCombine.lib")
+//#pragma comment(lib, "LLVMInstrumentation.lib")
+//#pragma comment(lib, "LLVMInterpreter.lib")
+//#pragma comment(lib, "LLVMipo.lib")
+//#pragma comment(lib, "LLVMIRReader.lib")
+//#pragma comment(lib, "LLVMLanaiAsmParser.lib")
+//#pragma comment(lib, "LLVMLanaiAsmPrinter.lib")
+//#pragma comment(lib, "LLVMLanaiCodeGen.lib")
+//#pragma comment(lib, "LLVMLanaiDesc.lib")
+//#pragma comment(lib, "LLVMLanaiDisassembler.lib")
+//#pragma comment(lib, "LLVMLanaiInfo.lib")
 #pragma comment(lib, "LLVMLibDriver.lib")
 #pragma comment(lib, "LLVMLineEditor.lib")
 #pragma comment(lib, "LLVMLinker.lib")
 #pragma comment(lib, "LLVMLTO.lib")
 #pragma comment(lib, "LLVMMC.lib")
-#pragma comment(lib, "LLVMMCDisassembler.lib")
-#pragma comment(lib, "LLVMMCJIT.lib")
+//#pragma comment(lib, "LLVMMCDisassembler.lib")
+//#pragma comment(lib, "LLVMMCJIT.lib")
 #pragma comment(lib, "LLVMMCParser.lib")
-#pragma comment(lib, "LLVMMipsAsmParser.lib")
-#pragma comment(lib, "LLVMMipsAsmPrinter.lib")
-#pragma comment(lib, "LLVMMipsCodeGen.lib")
-#pragma comment(lib, "LLVMMipsDesc.lib")
-#pragma comment(lib, "LLVMMipsDisassembler.lib")
-#pragma comment(lib, "LLVMMipsInfo.lib")
+//#pragma comment(lib, "LLVMMipsAsmParser.lib")
+//#pragma comment(lib, "LLVMMipsAsmPrinter.lib")
+//#pragma comment(lib, "LLVMMipsCodeGen.lib")
+//#pragma comment(lib, "LLVMMipsDesc.lib")
+//#pragma comment(lib, "LLVMMipsDisassembler.lib")
+//#pragma comment(lib, "LLVMMipsInfo.lib")
 #pragma comment(lib, "LLVMMIRParser.lib")
-#pragma comment(lib, "LLVMMSP430AsmPrinter.lib")
-#pragma comment(lib, "LLVMMSP430CodeGen.lib")
-#pragma comment(lib, "LLVMMSP430Desc.lib")
-#pragma comment(lib, "LLVMMSP430Info.lib")
-#pragma comment(lib, "LLVMNVPTXAsmPrinter.lib")
-#pragma comment(lib, "LLVMNVPTXCodeGen.lib")
-#pragma comment(lib, "LLVMNVPTXDesc.lib")
-#pragma comment(lib, "LLVMNVPTXInfo.lib")
-#pragma comment(lib, "LLVMObjCARCOpts.lib")
-#pragma comment(lib, "LLVMObject.lib")
-#pragma comment(lib, "LLVMObjectYAML.lib")
+//#pragma comment(lib, "LLVMMSP430AsmPrinter.lib")
+//#pragma comment(lib, "LLVMMSP430CodeGen.lib")
+//#pragma comment(lib, "LLVMMSP430Desc.lib")
+//#pragma comment(lib, "LLVMMSP430Info.lib")
+//#pragma comment(lib, "LLVMNVPTXAsmPrinter.lib")
+//#pragma comment(lib, "LLVMNVPTXCodeGen.lib")
+//#pragma comment(lib, "LLVMNVPTXDesc.lib")
+//#pragma comment(lib, "LLVMNVPTXInfo.lib")
+//#pragma comment(lib, "LLVMObjCARCOpts.lib")
+//#pragma comment(lib, "LLVMObject.lib")
+//#pragma comment(lib, "LLVMObjectYAML.lib")
 #pragma comment(lib, "LLVMOption.lib")
-#pragma comment(lib, "LLVMOrcJIT.lib")
-#pragma comment(lib, "LLVMPasses.lib")
-#pragma comment(lib, "LLVMPowerPCAsmParser.lib")
-#pragma comment(lib, "LLVMPowerPCAsmPrinter.lib")
-#pragma comment(lib, "LLVMPowerPCCodeGen.lib")
-#pragma comment(lib, "LLVMPowerPCDesc.lib")
-#pragma comment(lib, "LLVMPowerPCDisassembler.lib")
-#pragma comment(lib, "LLVMPowerPCInfo.lib")
+//#pragma comment(lib, "LLVMOrcJIT.lib")
+//#pragma comment(lib, "LLVMPasses.lib")
+//#pragma comment(lib, "LLVMPowerPCAsmParser.lib")
+//#pragma comment(lib, "LLVMPowerPCAsmPrinter.lib")
+//#pragma comment(lib, "LLVMPowerPCCodeGen.lib")
+//#pragma comment(lib, "LLVMPowerPCDesc.lib")
+//#pragma comment(lib, "LLVMPowerPCDisassembler.lib")
+//#pragma comment(lib, "LLVMPowerPCInfo.lib")
 #pragma comment(lib, "LLVMProfileData.lib")
 #pragma comment(lib, "LLVMRuntimeDyld.lib")
 #pragma comment(lib, "LLVMScalarOpts.lib")
 #pragma comment(lib, "LLVMSelectionDAG.lib")
-#pragma comment(lib, "LLVMSparcAsmParser.lib")
-#pragma comment(lib, "LLVMSparcAsmPrinter.lib")
-#pragma comment(lib, "LLVMSparcCodeGen.lib")
-#pragma comment(lib, "LLVMSparcDesc.lib")
-#pragma comment(lib, "LLVMSparcDisassembler.lib")
-#pragma comment(lib, "LLVMSparcInfo.lib")
+//#pragma comment(lib, "LLVMSparcAsmParser.lib")
+//#pragma comment(lib, "LLVMSparcAsmPrinter.lib")
+//#pragma comment(lib, "LLVMSparcCodeGen.lib")
+//#pragma comment(lib, "LLVMSparcDesc.lib")
+//#pragma comment(lib, "LLVMSparcDisassembler.lib")
+//#pragma comment(lib, "LLVMSparcInfo.lib")
 #pragma comment(lib, "LLVMSupport.lib")
 #pragma comment(lib, "LLVMSymbolize.lib")
-#pragma comment(lib, "LLVMSystemZAsmParser.lib")
-#pragma comment(lib, "LLVMSystemZAsmPrinter.lib")
-#pragma comment(lib, "LLVMSystemZCodeGen.lib")
-#pragma comment(lib, "LLVMSystemZDesc.lib")
-#pragma comment(lib, "LLVMSystemZDisassembler.lib")
-#pragma comment(lib, "LLVMSystemZInfo.lib")
+//#pragma comment(lib, "LLVMSystemZAsmParser.lib")
+//#pragma comment(lib, "LLVMSystemZAsmPrinter.lib")
+//#pragma comment(lib, "LLVMSystemZCodeGen.lib")
+//#pragma comment(lib, "LLVMSystemZDesc.lib")
+//#pragma comment(lib, "LLVMSystemZDisassembler.lib")
+//#pragma comment(lib, "LLVMSystemZInfo.lib")
 #pragma comment(lib, "LLVMTableGen.lib")
 #pragma comment(lib, "LLVMTarget.lib")
 #pragma comment(lib, "LLVMTransformUtils.lib")
 #pragma comment(lib, "LLVMVectorize.lib")
-#pragma comment(lib, "LLVMX86AsmParser.lib")
-#pragma comment(lib, "LLVMX86AsmPrinter.lib")
-#pragma comment(lib, "LLVMX86CodeGen.lib")
-#pragma comment(lib, "LLVMX86Desc.lib")
-#pragma comment(lib, "LLVMX86Disassembler.lib")
-#pragma comment(lib, "LLVMX86Info.lib")
-#pragma comment(lib, "LLVMX86Utils.lib")
-#pragma comment(lib, "LLVMXCoreAsmPrinter.lib")
-#pragma comment(lib, "LLVMXCoreCodeGen.lib")
-#pragma comment(lib, "LLVMXCoreDesc.lib")
-#pragma comment(lib, "LLVMXCoreDisassembler.lib")
-#pragma comment(lib, "LLVMXCoreInfo.lib")
-#pragma comment(lib, "LLVMXRay.lib")
+//#pragma comment(lib, "LLVMX86AsmParser.lib")
+//#pragma comment(lib, "LLVMX86AsmPrinter.lib")
+//#pragma comment(lib, "LLVMX86CodeGen.lib")
+//#pragma comment(lib, "LLVMX86Desc.lib")
+//#pragma comment(lib, "LLVMX86Disassembler.lib")
+//#pragma comment(lib, "LLVMX86Info.lib")
+//#pragma comment(lib, "LLVMX86Utils.lib")
+//#pragma comment(lib, "LLVMXCoreAsmPrinter.lib")
+//#pragma comment(lib, "LLVMXCoreCodeGen.lib")
+//#pragma comment(lib, "LLVMXCoreDesc.lib")
+//#pragma comment(lib, "LLVMXCoreDisassembler.lib")
+//#pragma comment(lib, "LLVMXCoreInfo.lib")
+//#pragma comment(lib, "LLVMXRay.lib")
 
 #pragma comment(lib, "clangAnalysis.lib")
 #pragma comment(lib, "clangARCMigrate.lib")
@@ -179,7 +179,7 @@
 #pragma comment(lib, "clangTooling.lib")
 #pragma comment(lib, "clangToolingCore.lib")
 #pragma comment(lib, "clangToolingRefactor.lib")
-#pragma comment(lib, "libclang.lib")
+//#pragma comment(lib, "libclang.lib")
 
 using namespace std;
 using namespace llvm;
@@ -385,33 +385,42 @@ static cl::OptionCategory MyToolCategory("My tool options");
 int main(int argc, const char **argv) {
 	std::vector<std::string> sourceFiles;
 	sourceFiles.push_back("sample/sample1.cpp");
+	sourceFiles.push_back("sample/sample2.cpp");
 		
-	std::vector<std::string> options;
-	options.push_back("-std=c++14");
-	options.push_back("-ferror-limit=9999");
+	std::vector<std::string> clangOptions;
+	clangOptions.push_back("-std=c++14");
+	clangOptions.push_back("-ferror-limit=9999");
 
-	options.push_back("-fms-extensions");
-	options.push_back("-fms-compatibility");
+	clangOptions.push_back("-fms-extensions");
+	clangOptions.push_back("-fms-compatibility");
 
-	options.push_back("-DUNICODE");
-	options.push_back("-DWIN32");
-	options.push_back("-DNDEBUG");
-	options.push_back("-D_WINDOWS");
-	options.push_back("-D_USRDLL");
-	options.push_back("-DASTMCDLL_EXPORTS");
-	options.push_back("-w");
-	options.push_back("-Waddress-of-temporary");
-	options.push_back("-Wwrite-strings");
-	options.push_back("-Wint-to-pointer-cast");
-	options.push_back("-Wunused-value");
+	clangOptions.push_back("-DUNICODE");
+	clangOptions.push_back("-DWIN32");
+	clangOptions.push_back("-DNDEBUG");
+	clangOptions.push_back("-D_WINDOWS");
+	clangOptions.push_back("-D_USRDLL");
+	clangOptions.push_back("-DASTMCDLL_EXPORTS");
+	clangOptions.push_back("-w");
+	clangOptions.push_back("-Waddress-of-temporary");
+	clangOptions.push_back("-Wwrite-strings");
+	clangOptions.push_back("-Wint-to-pointer-cast");
+	clangOptions.push_back("-Wunused-value");
 
 	std::vector<const char*> args;
-	args.push_back("");
-	for (auto& o : options) {
-		args.push_back(o.c_str());
-	}
+
+	// 実行ファイル名
+	args.push_back("test.exe");
+
+	// TODO: 自作ツール用オプション
+	// ソースファイル
 	for (auto& s : sourceFiles) {
 		args.push_back(s.c_str());
+	}
+
+	// clang 用オプション
+	args.push_back("--");
+	for (auto& o : clangOptions) {
+		args.push_back(o.c_str());
 	}
 
 	auto argsCount = (int)args.size();
