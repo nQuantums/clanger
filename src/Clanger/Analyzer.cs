@@ -335,8 +335,8 @@ namespace Clanger {
 					CXFile f1, f2;
 					Position position1 = new Position(), position2 = new Position();
 					clang.getSpellingLocation(loc, out f1, out position1.Line, out position1.Column, out offset1);
-					//if (position1.Line == 0)
-					//	return null;
+					if (position1.Line == 0)
+						return null;
 					clang.getExpansionLocation(loc, out f2, out position2.Line, out position2.Column, out offset2);
 
 					var file = File(clang.getFileName(f1).ToString());
@@ -383,7 +383,7 @@ namespace Clanger {
 
 			Entity _Parent = InitialParent;
 
-			public string Name;
+			public string Name { get; set; }
 			public Analyzer Owner;
 			public HashSet<CursorKey> Cursors = new HashSet<CursorKey>();
 			public LocationPath LocationPath;
@@ -690,6 +690,7 @@ namespace Clanger {
 		Dictionary<File, Translation> _TranslationUnits = new Dictionary<File, Translation>();
 		Translation _CurrentTranslation;
 		HashSet<CXCursorKind> _UsedKinds = new HashSet<CXCursorKind>();
+		public List<Entity> Entities = new List<Entity>(); // TODO: 削除する
 		#endregion
 
 		#region 公開メソッド
@@ -739,6 +740,7 @@ namespace Clanger {
 			//	Console.WriteLine(e.FullName);
 			//}
 
+			// TODO: 削除する
 			var kinds = new List<CXCursorKind>(_UsedKinds);
 			kinds.Sort();
 			foreach(var kind in kinds) {
@@ -781,6 +783,7 @@ namespace Clanger {
 				if (t == null)
 					return null;
 				_CursorToEntity.Add(key, t);
+				this.Entities.Add(t); // TODO: 消す
 				return t;
 			}
 		}

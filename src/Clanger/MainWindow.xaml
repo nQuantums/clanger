@@ -32,6 +32,27 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <DataTemplate x:Key="template">
+            <Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Stretch" Height="50">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="{Binding SpellingLocation}"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Grid.Row="0"/>
+
+                    <TextBlock Text="{Binding Name}"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Center"
+                               Grid.Row="1"/>
+                </Grid>
+            </Border>
+        </DataTemplate>
     </Window.Resources>
 
     <Grid>
@@ -50,14 +71,27 @@
                                SyntaxHighlighting="C#"
                                ShowLineNumbers="True"/>
 
-        <avalonEdit:TextEditor x:Name="xsdEditor"
-                               Grid.Column="1"
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <ListBox Name="lvVirtual"
+                 Grid.Row="0"
+                 ItemsSource="{Binding Items}"
+                 ItemTemplate="{StaticResource template}"
+                 VirtualizingPanel.ScrollUnit="Pixel"
+                 SelectionChanged="lvVirtual_SelectionChanged"/>
+
+            <avalonEdit:TextEditor x:Name="xsdEditor"
+                               Grid.Row="1"
                                Margin="10"
                                Background="White"
                                FontFamily="Consolas"
                                FontSize="10pt"
                                SyntaxHighlighting="XML"
                                TextChanged="xsdEditor_TextChanged"/>
-
+        </Grid>
     </Grid>
 </Controls:MetroWindow>
