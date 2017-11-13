@@ -10,43 +10,6 @@
 
 class Entity {
 public:
-	struct Hash {
-		typedef std::size_t result_type;
-
-		std::size_t operator()(const std::unique_ptr<Entity>& key) const noexcept {
-#if defined(_WIN64)
-			static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
-			const size_t _FNV_offset_basis = 14695981039346656037ULL;
-			const size_t _FNV_prime = 1099511628211ULL;
-#else /* defined(_WIN64) */
-			static_assert(sizeof(size_t) == 4, "This code is for 32-bit size_t.");
-			const size_t _FNV_offset_basis = 2166136261U;
-			const size_t _FNV_prime = 16777619U;
-#endif /* defined(_WIN64) */
-			auto p = key->Usr;
-			if (p) {
-				size_t _Val = _FNV_offset_basis;
-				for (; *p; ++p) {
-					_Val ^= (size_t)*p;
-					_Val *= _FNV_prime;
-				}
-				return (_Val);
-			} else {
-				return 0;
-			}
-		}
-	};
-
-	struct Equals {
-		bool operator()(const std::unique_ptr<Entity>& _Left, const std::unique_ptr<Entity>& _Right) const {	// apply operator== to operands
-			if (_Left->Usr && _Right->Usr) {
-				return strcmp(_Left->Usr, _Right->Usr) == 0;
-			} else {
-				return _Left == _Right;
-			}
-		}
-	};
-
 #define ENTITY_KIND(x, isDecl) x,
 	enum class Kinds {
 		Unknown = 0,

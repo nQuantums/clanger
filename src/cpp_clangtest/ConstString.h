@@ -1,9 +1,9 @@
 #pragma once
-#include <exception>
 #include <memory>
-#include <string.h>
 #include <iostream>
-#include <unordered_set>
+#include <algorithm>
+#include <locale>
+
 
 template<class T>
 std::size_t HashFromNullTerminatedArray(const T* nullTerminatedArray) {
@@ -30,9 +30,11 @@ std::size_t HashFromNullTerminatedArray(const T* nullTerminatedArray) {
 }
 
 #pragma pack(push, 1)
+struct ConstStringDefaultBase {};
+
 // 不変文字列クラス
 // １回のメモリ確保でメンバ変数と文字列領域を同時に確保する
-template<class T> class ConstString {
+template<class T, class Base = ConstStringDefaultBase> class ConstString : Base {
 public:
 	template<class _Ty> friend class ConstStringAllocator;
 

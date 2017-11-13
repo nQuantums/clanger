@@ -102,12 +102,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_SCL_SECURE_NO_WARNINGS;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>G:\llvm\include;G:\clang_static\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\..\..\..\..\llvm-d\include;$(ProjectDir)..\..\..\..\..\..\clang-d\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>G:\dvl\libs\cpp\llvm-5.0.0.src\build\Debug\lib;G:\dvl\libs\cpp\cfe-5.0.0.src\build_static_debug\Debug\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\..\..\..\..\llvm-d\lib;$(ProjectDir)..\..\..\..\..\..\clang-d\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -152,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="Analyzer.h" />
     <ClInclude Include="ClangCommon.h" />
+    <ClInclude Include="ConstString.h" />
     <ClInclude Include="Entity.h" />
     <ClInclude Include="Location.h" />
     <ClInclude Include="stdafx.h" />
