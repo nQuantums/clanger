@@ -1,0 +1,4 @@
+﻿
+void Sample2Func() {
+
+}

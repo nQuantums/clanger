@@ -34,7 +34,11 @@
         </Style>
 
         <DataTemplate x:Key="template">
-            <Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Stretch" Height="50">
+            <TextBlock Text="{Binding DisplayName}"
+                       HorizontalAlignment="Stretch"
+                       VerticalAlignment="Center"
+                       Height="Auto"/>
+            <!--<Border BorderBrush="Black" BorderThickness="1" HorizontalAlignment="Stretch" Height="Auto">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -46,22 +50,38 @@
                                VerticalAlignment="Center"
                                Grid.Row="0"/>
 
-                    <TextBlock Text="{Binding Name}"
+                    <TextBlock Text="{Binding DisplayName}"
                                HorizontalAlignment="Left"
                                VerticalAlignment="Center"
                                Grid.Row="1"/>
                 </Grid>
-            </Border>
+            </Border>-->
         </DataTemplate>
     </Window.Resources>
 
     <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="*"/>
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Stretch" Height="Auto">
+            <Button Content="Definition" Click="Definition_Click"/>
+            <Button Content="TemplateDefinition" Click="TemplateDefinition_Click"/>
+            <Button Content="Referenced" Click="Referenced_Click"/>
+            <Button Content="Canonical" Click="Canonical_Click"/>
+            <Button Content="SemanticParent" Click="SemanticParent_Click"/>
+            <Button Content="LexicalParent" Click="LexicalParent_Click"/>
+            <Button Content="SpecializedTemplate" Click="SpecializedTemplate_Click"/>
+        </StackPanel>
+
         <avalonEdit:TextEditor x:Name="textEditor"
+                               Grid.Row="1"
                                Grid.Column="0"
                                Margin="10"
                                Background="#FF202020"
@@ -71,10 +91,10 @@
                                SyntaxHighlighting="C#"
                                ShowLineNumbers="True"/>
 
-        <Grid Grid.Column="1">
+        <Grid Grid.Column="1" Grid.Row="1">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="*"/>
+                <!--<RowDefinition Height="*"/>-->
             </Grid.RowDefinitions>
 
             <ListBox Name="lvVirtual"
@@ -82,9 +102,11 @@
                  ItemsSource="{Binding Items}"
                  ItemTemplate="{StaticResource template}"
                  VirtualizingPanel.ScrollUnit="Pixel"
-                 SelectionChanged="lvVirtual_SelectionChanged"/>
+                 SelectionChanged="lvVirtual_SelectionChanged"
+                     PreviewMouseDown="lvVirtual_PreviewMouseDown"/>
 
             <avalonEdit:TextEditor x:Name="xsdEditor"
+                                   Visibility="Hidden"
                                Grid.Row="1"
                                Margin="10"
                                Background="White"
@@ -93,5 +115,14 @@
                                SyntaxHighlighting="XML"
                                TextChanged="xsdEditor_TextChanged"/>
         </Grid>
+
+        <avalonEdit:TextEditor x:Name="outputText"
+                               Grid.Row="2"
+                               Grid.ColumnSpan="2"
+                               Margin="10"
+                               Background="#FF171717"
+                               Foreground="#FFDDDDDD"
+                               FontFamily="Consolas"
+                               FontSize="10pt"/>
     </Grid>
 </Controls:MetroWindow>
