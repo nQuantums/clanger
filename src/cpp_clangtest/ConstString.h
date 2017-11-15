@@ -5,8 +5,8 @@
 #include <locale>
 
 
-template<class T>
-std::size_t HashFromNullTerminatedArray(const T* nullTerminatedArray) {
+template<class Derived>
+std::size_t HashFromNullTerminatedArray(const Derived* nullTerminatedArray) {
 #if defined(_WIN64)
 	static_assert(sizeof(size_t) == 8, "This code is for 64-bit size_t.");
 	const size_t _FNV_offset_basis = 14695981039346656037ULL;
@@ -28,168 +28,6 @@ std::size_t HashFromNullTerminatedArray(const T* nullTerminatedArray) {
 		return 0;
 	}
 }
-
-#pragma pack(push, 1)
-struct ConstStringDefaultBase {};
-
-// 不変文字列クラス
-// １回のメモリ確保でメンバ変数と文字列領域を同時に確保する
-template<class T, class Base = ConstStringDefaultBase> class ConstString : Base {
-public:
-	template<class _Ty> friend class ConstStringAllocator;
-
-	using Char = T;
-	using Self = ConstString<Char>;
-	using UniquePtr = std::unique_ptr<Self>;
-	using SharedPtr = std::shared_ptr<Self>;
-
-	struct UniquePtrHasher {
-		using argument_type = UniquePtr;
-		using result_type = size_t;
-		size_t operator()(const argument_type& _Keyval) const {
-			return _Keyval->Hash();
-		}
-	};
-	struct SharedPtrHasher {
-		using argument_type = SharedPtr;
-		using result_type = size_t;
-		size_t operator()(const argument_type& _Keyval) const {
-			return _Keyval->Hash();
-		}
-	};
-
-	struct UniquePtrEquals {
-		using argument_type = UniquePtr;
-		using result_type = bool;
-		bool operator()(const argument_type& _Left, const argument_type& _Right) const {
-			return _Left->Equals(*_Right);
-		}
-	};
-	struct SharedPtrEquals {
-		using argument_type = SharedPtr;
-		using result_type = bool;
-		bool operator()(const argument_type& _Left, const argument_type& _Right) const {
-			return _Left->Equals(*Right);
-		}
-	};
-
-
-	static size_t GetLength(const Char* string) {
-		if (!string) {
-			return 0;
-		}
-		auto end = string;
-		while (*end) {
-			end++;
-		}
-		return end - string;
-	}
-
-	// 文字列の std::unique_ptr を作成
-	static std::unique_ptr<Self> New(const Char* string) {
-		auto stringSize = GetLength(string) + 1;
-		auto p = operator new(sizeof(Self) + stringSize);
-		return std::unique_ptr<Self>(new (p) Self(stringSize, string)); // TODO: ここで例外発生したらメモリリークしてしまうのでなんとかする
-	}
-
-	// 文字列の std::shared_ptr を作成
-	static std::shared_ptr<Self> NewShared(const Char* string) {
-		auto stringSize = GetLength(string) + 1;
-		struct Bridge : public Self {
-			Bridge(size_t stringSize, const Char* string) noexcept : Self(stringSize, string) {}
-			void operator delete(void* p) {
-				if (!p) {
-					return;
-				}
-				auto pcs = reinterpret_cast<Self*>(p);
-				if (!pcs->_owned) {
-					return;
-				}
-				::operator delete(p);
-			}
-		};
-		return std::allocate_shared<Bridge>(ConstStringAllocator<Bridge>(stringSize), stringSize, string);
-	}
-
-
-	ConstString() {
-		_string = nullptr;
-		_length = 0;
-		_hash = 0;
-		_owned = false;
-	}
-	ConstString(const Char* string) {
-		_string = string;
-		_length = GetLength(string);
-		_hash = HashFromNullTerminatedArray(string);
-		_owned = false;
-	}
-	ConstString(const ConstString& c) = delete;
-	ConstString& operator=(const ConstString& c) = delete;
-
-	Char operator[](intptr_t index) const {
-		return _string[index];
-	}
-
-	operator const Char*() const noexcept {
-		return _string;
-	}
-	const Char* String() const noexcept {
-		return _string;
-	}
-	size_t Length() const noexcept {
-		return _length;
-	}
-	size_t Hash() const noexcept {
-		return _hash;
-	}
-	bool Equals(const Self& c) const {
-		auto isNull1 = !_string;
-		auto isNull2 = !c._string;
-		if (isNull1 && isNull2) {
-			return true;
-		} else if (isNull1 != isNull2) {
-			return false;
-		}
-		if (_length != c._length) {
-			return false;
-		}
-		return memcmp(_string, c._string, sizeof(Char) * _length) == 0;
-	}
-
-	bool operator==(const Self& c) const {
-		return Equals(c);
-	}
-
-	// ConstString(const Char* string) コンストラクタで生成されたものはメモリ解放の必要が無いため delete をオーバーロードして対処する
-	void operator delete(void* p) {
-		if (!p) {
-			return;
-		}
-		auto pcs = reinterpret_cast<Self*>(p);
-		if (!pcs->_owned) {
-			return;
-		}
-		::operator delete(p);
-	}
-
-private:
-	ConstString(size_t stringSize, const Char* string) noexcept {
-		auto payload = reinterpret_cast<Char*>(this + 1);
-		memcpy(payload, string, stringSize);
-		_string = payload;
-		_length = stringSize - 1;
-		_hash = HashFromNullTerminatedArray(string);
-		_owned = true;
-	}
-
-	const Char* _string;
-	size_t _length;
-	size_t _hash;
-	bool _owned;
-};
-#pragma pack(pop)
-
 
 template<class _Ty> class ConstStringAllocator {
 public:
@@ -268,21 +106,165 @@ template<class _Ty, class _Other> inline bool operator!=(const ConstStringAlloca
 	return (false);
 }
 
+#pragma pack(push, 1)
+struct ConstStringDefaultBase {};
+
+// 不変文字列クラス
+// １回のメモリ確保でメンバ変数と文字列領域を同時に確保する
+template<class Derived, class Base = ConstStringDefaultBase> class ConstString : public Base {
+public:
+	using Char = Derived;
+	using Self = ConstString<Char>;
+	using UniquePtr = std::unique_ptr<Self>;
+	using SharedPtr = std::shared_ptr<Self>;
+
+	static size_t GetLength(const Char* string) {
+		if (!string) {
+			return 0;
+		}
+		auto end = string;
+		while (*end) {
+			end++;
+		}
+		return end - string;
+	}
+
+	// std::unique_ptr でラップした文字列インスタンスを作成
+	template<class... Args> static std::unique_ptr<Self> New(const Char* string, Args... args) {
+		return NewDerived<Self>(string, args...);
+	}
+
+	// std::shared_ptr でラップした文字列インスタンスを作成
+	template<class... Args> static std::shared_ptr<Self> NewShared(const Char* string, Args... args) {
+		return NewSharedDerived<Self>(string, args...);
+	}
+
+
+	template<class... Args> ConstString(Args... args) noexcept : Base(args...) {
+		_string = nullptr;
+		_length = 0;
+		_hash = 0;
+		_owned = false;
+	}
+	template<class... Args> ConstString(const Char* string, Args... args) noexcept : Base(args...) {
+		_string = string;
+		_length = GetLength(string);
+		_hash = HashFromNullTerminatedArray(string);
+		_owned = false;
+	}
+	template<class... Args> ConstString(size_t stringSize, const Char* string, Args... args) noexcept : Base(args...) {
+		auto payload = reinterpret_cast<Char*>(this + 1);
+		memcpy(payload, string, stringSize);
+		_string = payload;
+		_length = stringSize - 1;
+		_hash = HashFromNullTerminatedArray(string);
+		_owned = true;
+	}
+	ConstString(const ConstString& c) = delete;
+	ConstString& operator=(const ConstString& c) = delete;
+
+	Char operator[](intptr_t index) const {
+		return _string[index];
+	}
+
+	operator const Char*() const noexcept {
+		return _string;
+	}
+	const Char* String() const noexcept {
+		return _string;
+	}
+	size_t Length() const noexcept {
+		return _length;
+	}
+	size_t Hash() const noexcept {
+		return _hash;
+	}
+	bool Owned() const  noexcept {
+		return _owned;
+	}
+	bool Equals(const Self& c) const {
+		auto isNull1 = !_string;
+		auto isNull2 = !c._string;
+		if (isNull1 && isNull2) {
+			return true;
+		} else if (isNull1 != isNull2) {
+			return false;
+		}
+		if (_length != c._length) {
+			return false;
+		}
+		return memcmp(_string, c._string, sizeof(Char) * _length) == 0;
+	}
+
+	bool operator==(const Self& c) const {
+		return Equals(c);
+	}
+
+	// ConstString(const Char* string) コンストラクタで生成されたものはメモリ解放の必要が無いため delete をオーバーロードして対処する
+	void operator delete(void* p) {
+		if (!p) {
+			return;
+		}
+		auto pcs = reinterpret_cast<Self*>(p);
+		if (!pcs->Owned()) {
+			return;
+		}
+		::operator delete(p);
+	}
+
+protected:
+	// std::unique_ptr でラップしたインスタンスを作成
+	template<class Derived, class... Args> static std::unique_ptr<Derived> NewDerived(const Char* string, Args... args) {
+		auto stringSize = GetLength(string) + 1;
+		auto p = operator new(sizeof(Derived) + stringSize);
+		return std::unique_ptr<Derived>(new (p) Derived(stringSize, string, args...)); // TODO: ここで例外発生したらメモリリークしてしまうのでなんとかする
+	}
+
+	// std::shared_ptr でラップしたインスタンスを作成
+	template<class Derived, class... Args> static std::shared_ptr<Derived> NewSharedDerived(const Char* string, Args... args) {
+		auto stringSize = GetLength(string) + 1;
+		return std::allocate_shared<Derived>(ConstStringAllocator<Derived>(stringSize), stringSize, string, args...);
+	}
+
+	const Char* _string;
+	size_t _length;
+	size_t _hash;
+	bool _owned;
+};
+#pragma pack(pop)
+
+template<class PtrType>
+struct ConstStringPtrHasher {
+	using argument_type = PtrType;
+	using result_type = size_t;
+	size_t operator()(const argument_type& _Keyval) const {
+		return _Keyval->Hash();
+	}
+};
+
+template<class PtrType>
+struct ConstStringPtrEquals {
+	using argument_type = PtrType;
+	using result_type = bool;
+	bool operator()(const argument_type& _Left, const argument_type& _Right) const {
+		return _Left->Equals(*_Right);
+	}
+};
+
 
 namespace std {
-	template<> struct hash<ConstString<char>::UniquePtr> : ConstString<char>::UniquePtrHasher {};
-	template<> struct hash<ConstString<char>::SharedPtr> : ConstString<char>::UniquePtrHasher {};
+	template<class Derived, class Base> struct hash<std::unique_ptr<ConstString<Derived, Base>>> : ConstStringPtrHasher<std::unique_ptr<ConstString<Derived, Base>>> {};
+	template<class Derived, class Base> struct equal_to<std::unique_ptr<ConstString<Derived, Base>>> : ConstStringPtrEquals<std::unique_ptr<ConstString<Derived, Base>>> {};
+	template<class Derived, class Base> struct hash<std::shared_ptr<ConstString<Derived, Base>>> : ConstStringPtrHasher<std::shared_ptr<ConstString<Derived, Base>>> {};
+	template<class Derived, class Base> struct equal_to<std::shared_ptr<ConstString<Derived, Base>>> : ConstStringPtrEquals<std::shared_ptr<ConstString<Derived, Base>>> {};
 
-	template<> struct equal_to<ConstString<char>::UniquePtr> : ConstString<char>::UniquePtrEquals {};
-	template<> struct equal_to<ConstString<char>::SharedPtr> : ConstString<char>::SharedPtrEquals {};
-
-	template<class T> std::ostream& operator<<(std::ostream& os, const ConstString<T>& value) {
+	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const ConstString<Derived, Base>& value) {
 		return os << value.String();
 	}
-	template<class T> std::ostream& operator<<(std::ostream& os, const std::unique_ptr<ConstString<T>>& value) {
+	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const std::unique_ptr<ConstString<Derived, Base>>& value) {
 		return os << value->String();
 	}
-	template<class T> std::ostream& operator<<(std::ostream& os, const std::shared_ptr<ConstString<T>>& value) {
+	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const std::shared_ptr<ConstString<Derived, Base>>& value) {
 		return os << value->String();
 	}
 }
