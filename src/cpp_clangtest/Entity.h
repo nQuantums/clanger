@@ -6,6 +6,8 @@
 #include <memory>
 
 #include "ClangCommon.h"
+#include "ConstString.h"
+#include "FileManager.h"
 
 
 class Entity {
@@ -17,23 +19,25 @@ public:
 	};
 #undef ENTITY_KIND
 
-#define ENTITY_KIND(x, isDecl) Entity(clang::x* p) { this->Kind = Kinds::x; this->Node = p; if (isDecl) { SetUsr(reinterpret_cast<clang::Decl*>(p)); } else { this->Usr = nullptr; } }
+#define ENTITY_KIND(x, isDecl)\
+	Entity(clang::x* p, Location* loc) {\
+		this->Kind = Kinds::x;\
+		this->Node = p;\
+		if (isDecl) {\
+			SetName(reinterpret_cast<clang::Decl*>(p));\
+			SetUsr(reinterpret_cast<clang::Decl*>(p));\
+		}\
+		this->Loc = loc;\
+	}
 #include "EntityKinds.inc"
 #undef ENTITY_KIND
 	~Entity() {
-		if (this->Usr)
-			delete this->Usr;
 	}
 
-#define ENTITY_KIND(x, isDecl) clang::FunctionDecl* x;
-	union {
-		void* Node;
-#include "EntityKinds.inc"
-	};
-#undef ENTITY_KIND
 	Kinds Kind;
-	const char* Usr;
-	std::vector<Entity*> Referers;
+	ConstStringA::UniquePtr Name;
+	ConstStringA::UniquePtr Usr;
+	Location* Loc;
 
 #define ENTITY_KIND(x, isDecl) case Kinds::x: return isDecl;
 	bool IsDecl() const {
@@ -43,22 +47,14 @@ public:
 		}
 	}
 #undef ENTITY_KIND
-	clang::Decl* Decl() const {
-		return IsDecl() ? reinterpret_cast<clang::Decl*>(this->Node) : nullptr;
-	}
-	clang::Stmt* Stmt() const {
-		return IsDecl() ? nullptr : reinterpret_cast<clang::Stmt*>(this->Node);
-	}
-	std::string Name() const {
-		auto decl = Decl();
-		if (clang::NamedDecl* N = clang::dyn_cast<clang::NamedDecl>(decl)) {
-			return N->getNameAsString();
-		} else {
-			return "";
+
+private:
+	void SetName(clang::Decl* D) {
+		if (clang::NamedDecl* N = clang::dyn_cast<clang::NamedDecl>(D)) {
+			this->Name = ConstStringA::New(N->getNameAsString().c_str());
 		}
 	}
 
-private:
 	void SetUsr(clang::Decl* D) {
 		llvm::SmallString<512> buf;
 		clang::index::generateUSRForDecl(D, buf);
@@ -66,6 +62,6 @@ private:
 		auto size = buf.size();
 		auto p = new char[size];
 		memcpy(p, buf.data(), size);
-		this->Usr = p;
+		this->Usr = ConstStringA::New(p);
 	}
 };

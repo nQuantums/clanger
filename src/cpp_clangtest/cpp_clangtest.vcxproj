@@ -154,7 +154,11 @@
     <ClInclude Include="ClangCommon.h" />
     <ClInclude Include="ConstString.h" />
     <ClInclude Include="Entity.h" />
+    <ClInclude Include="File.h" />
+    <ClInclude Include="FileImpl.h" />
+    <ClInclude Include="FileManager.h" />
     <ClInclude Include="Location.h" />
+    <ClInclude Include="LocationImpl.h" />
     <ClInclude Include="Position.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />

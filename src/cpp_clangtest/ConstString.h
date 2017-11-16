@@ -1,9 +1,8 @@
 #pragma once
 #include <memory>
-#include <iostream>
+#include <ostream>
 #include <algorithm>
 #include <locale>
-
 
 template<class Derived>
 std::size_t HashFromNullTerminatedArray(const Derived* nullTerminatedArray) {
@@ -47,7 +46,7 @@ public:
 	using propagate_on_container_move_assignment = std::true_type;
 	using is_always_equal = std::true_type;
 
-	template<class _Other> struct rebind {	// convert this type to PayloadAllocator<_Other>
+	template<class _Other> struct rebind {	// convert this type to ConstStringAllocator<_Other>
 		using other = ConstStringAllocator<_Other>;
 	};
 
@@ -61,15 +60,15 @@ public:
 
 	size_t stringSize;
 
-	ConstStringAllocator() _NOEXCEPT {	// construct default PayloadAllocator (do nothing)
+	ConstStringAllocator() _NOEXCEPT {	// construct default ConstStringAllocator (do nothing)
 		this->stringSize = 0;
 	}
-	ConstStringAllocator(size_t payloadSize) _NOEXCEPT {	// construct default PayloadAllocator (do nothing)
+	ConstStringAllocator(size_t payloadSize) _NOEXCEPT {	// construct default ConstStringAllocator (do nothing)
 		this->stringSize = payloadSize;
 	}
 
 	ConstStringAllocator(const ConstStringAllocator&) _NOEXCEPT = default;
-	template<class _Other> ConstStringAllocator(const ConstStringAllocator<_Other>& a) _NOEXCEPT {	// construct from a related PayloadAllocator (do nothing)
+	template<class _Other> ConstStringAllocator(const ConstStringAllocator<_Other>& a) _NOEXCEPT {	// construct from a related ConstStringAllocator (do nothing)
 		this->stringSize = a.stringSize;
 	}
 
@@ -152,8 +151,8 @@ public:
 		_hash = HashFromNullTerminatedArray(string);
 		_owned = false;
 	}
-	template<class... Args> ConstString(size_t stringSize, const Char* string, Args... args) noexcept : Base(args...) {
-		auto payload = reinterpret_cast<Char*>(this + 1);
+	template<class Derived, class... Args> ConstString(Derived* dummy, size_t stringSize, const Char* string, Args... args) noexcept : Base(args...) {
+		auto payload = reinterpret_cast<Char*>(reinterpret_cast<Derived*>(this) + 1);
 		memcpy(payload, string, stringSize);
 		_string = payload;
 		_length = stringSize - 1;
@@ -167,16 +166,16 @@ public:
 		return _string[index];
 	}
 
-	operator const Char*() const noexcept {
+	constexpr operator const Char*() const noexcept {
 		return _string;
 	}
-	const Char* String() const noexcept {
+	constexpr const Char* String() const noexcept {
 		return _string;
 	}
-	size_t Length() const noexcept {
+	constexpr size_t Length() const noexcept {
 		return _length;
 	}
-	size_t Hash() const noexcept {
+	constexpr size_t Hash() const noexcept {
 		return _hash;
 	}
 	bool Owned() const  noexcept {
@@ -200,7 +199,7 @@ public:
 		return Equals(c);
 	}
 
-	// ConstString(const Char* string) コンストラクタで生成されたものはメモリ解放の必要が無いため delete をオーバーロードして対処する
+	// メモリ解放の必要が無いパターンもあるため delete をオーバーロードして対処する
 	void operator delete(void* p) {
 		if (!p) {
 			return;
@@ -217,13 +216,13 @@ protected:
 	template<class Derived, class... Args> static std::unique_ptr<Derived> NewDerived(const Char* string, Args... args) {
 		auto stringSize = GetLength(string) + 1;
 		auto p = operator new(sizeof(Derived) + stringSize);
-		return std::unique_ptr<Derived>(new (p) Derived(stringSize, string, args...)); // TODO: ここで例外発生したらメモリリークしてしまうのでなんとかする
+		return std::unique_ptr<Derived>(new (p) Derived(reinterpret_cast<Derived*>(0), stringSize, string, args...)); // TODO: ここで例外発生したらメモリリークしてしまうのでなんとかする
 	}
 
 	// std::shared_ptr でラップしたインスタンスを作成
 	template<class Derived, class... Args> static std::shared_ptr<Derived> NewSharedDerived(const Char* string, Args... args) {
 		auto stringSize = GetLength(string) + 1;
-		return std::allocate_shared<Derived>(ConstStringAllocator<Derived>(stringSize), stringSize, string, args...);
+		return std::allocate_shared<Derived>(ConstStringAllocator<Derived>(stringSize), reinterpret_cast<Derived*>(0), stringSize, string, args...);
 	}
 
 	const Char* _string;
@@ -253,18 +252,32 @@ struct ConstStringPtrEquals {
 
 
 namespace std {
-	template<class Derived, class Base> struct hash<std::unique_ptr<ConstString<Derived, Base>>> : ConstStringPtrHasher<std::unique_ptr<ConstString<Derived, Base>>> {};
-	template<class Derived, class Base> struct equal_to<std::unique_ptr<ConstString<Derived, Base>>> : ConstStringPtrEquals<std::unique_ptr<ConstString<Derived, Base>>> {};
-	template<class Derived, class Base> struct hash<std::shared_ptr<ConstString<Derived, Base>>> : ConstStringPtrHasher<std::shared_ptr<ConstString<Derived, Base>>> {};
-	template<class Derived, class Base> struct equal_to<std::shared_ptr<ConstString<Derived, Base>>> : ConstStringPtrEquals<std::shared_ptr<ConstString<Derived, Base>>> {};
+	template<class Char, class Base> struct default_delete<ConstString<Char, Base>> {
+		constexpr default_delete() noexcept = default;
+		template<class _Ty2, class = enable_if_t<is_convertible<_Ty2 *, _Ty *>::value>> default_delete(const default_delete<_Ty2>&) noexcept {
+		}
+		void operator()(ConstString<Char, Base>* _Ptr) const noexcept {
+			if (_Ptr->Owned()) {
+				delete _Ptr;
+			}
+		}
+	};
 
-	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const ConstString<Derived, Base>& value) {
+	template<class Char, class Base> struct hash<std::unique_ptr<ConstString<Char, Base>>> : ConstStringPtrHasher<std::unique_ptr<ConstString<Char, Base>>> {};
+	template<class Char, class Base> struct equal_to<std::unique_ptr<ConstString<Char, Base>>> : ConstStringPtrEquals<std::unique_ptr<ConstString<Char, Base>>> {};
+	template<class Char, class Base> struct hash<std::shared_ptr<ConstString<Char, Base>>> : ConstStringPtrHasher<std::shared_ptr<ConstString<Char, Base>>> {};
+	template<class Char, class Base> struct equal_to<std::shared_ptr<ConstString<Char, Base>>> : ConstStringPtrEquals<std::shared_ptr<ConstString<Char, Base>>> {};
+
+	template<class Char, class Base> std::ostream& operator<<(std::ostream& os, const ConstString<Char, Base>& value) {
 		return os << value.String();
 	}
-	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const std::unique_ptr<ConstString<Derived, Base>>& value) {
+	template<class Char, class Base> std::ostream& operator<<(std::ostream& os, const ConstString<Char, Base>* value) {
 		return os << value->String();
 	}
-	template<class Derived, class Base> std::ostream& operator<<(std::ostream& os, const std::shared_ptr<ConstString<Derived, Base>>& value) {
+	template<class Char, class Base> std::ostream& operator<<(std::ostream& os, const std::unique_ptr<ConstString<Char, Base>>& value) {
+		return os << value->String();
+	}
+	template<class Char, class Base> std::ostream& operator<<(std::ostream& os, const std::shared_ptr<ConstString<Char, Base>>& value) {
 		return os << value->String();
 	}
 }
