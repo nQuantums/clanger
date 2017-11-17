@@ -3,8 +3,10 @@
 
 class Analyzer {
 public:
-	std::unordered_set<std::unique_ptr<Entity>, Entity::Hash, Entity::Equals> Entities;
-	std::vector<std::unique_ptr<clang::CompilerInstance>> CompilerInstances;
+
+private:
+	FileManager _FM;
+	std::unordered_map<const ConstStringA*, std::unique_ptr<Entity>> _Entities;
 };
 
 class MyVisitor : public clang::RecursiveASTVisitor<MyVisitor> {
@@ -12,7 +14,8 @@ private:
 	std::shared_ptr<Analyzer> _Analyzer;
 	clang::PrintingPolicy policy;
 	clang::CompilerInstance& compilerInstance;
-	clang::SourceManager& sourceManager;
+	clang::SourceManager& _SourceManager;
+	std::string _LocBuffer;
 
 public:
 	typedef clang::RecursiveASTVisitor<MyVisitor> base;
@@ -20,12 +23,12 @@ public:
 	MyVisitor(std::shared_ptr<Analyzer> analyzer, clang::CompilerInstance& compilerInstance)
 		: compilerInstance(compilerInstance)
 		, policy(clang::PrintingPolicy(compilerInstance.getASTContext().getPrintingPolicy()))
-		, sourceManager(compilerInstance.getASTContext().getSourceManager()) {
+		, _SourceManager(compilerInstance.getASTContext().getSourceManager()) {
 		_Analyzer = analyzer;
 		policy.Bool = 1; // print()にてboolが_Boolと表示されないようにする
 	}
 
-	bool TraverseDecl(clang::Decl *x) {
+	bool TraverseDecl(clang::Decl* D) {
 		// your logic here
 		//llvm::errs() << x->getDeclKindName() << "\n"; // Declの型表示
 		//if (clang::NamedDecl *N = clang::dyn_cast<clang::NamedDecl>(x)) {
@@ -33,7 +36,11 @@ public:
 		//}
 		//llvm::errs() << " (" << x->getLocation().printToString(sourceManager) << ")\n"; // ソース上の場所表示
 		//std::cout << "--------" << std::endl;
-		x->dumpColor();
+		D->dumpColor();
+
+		_LocBuffer.clear();
+		llvm::raw_string_ostream s(_LocBuffer);
+		D->getLocation().print(s, _SourceManager);
 
 
 		//llvm::SmallString<512> buf;
@@ -41,11 +48,15 @@ public:
 		//buf.push_back('\0');
 		//std::cout << buf.c_str() << std::endl;
 
-		base::TraverseDecl(x); // Forward to base class
+		base::TraverseDecl(D); // Forward to base class
 		return true; // Return false to stop the AST analyzing
 	}
 	bool TraverseVarDecl(clang::VarDecl* D) {
-		_Analyzer->Entities.insert(std::make_unique<Entity>(D));
+		_LocBuffer.clear();
+		llvm::raw_string_ostream s(_LocBuffer);
+		D->getLocation().print(s, _SourceManager);
+
+		//_Analyzer->Entities.insert(std::make_unique<Entity>(D));
 		base::TraverseVarDecl(D);
 		return true;
 	}

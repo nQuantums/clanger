@@ -38,6 +38,7 @@ public:
 	ConstStringA::UniquePtr Name;
 	ConstStringA::UniquePtr Usr;
 	Location* Loc;
+	std::vector<Entity*> Children;
 
 #define ENTITY_KIND(x, isDecl) case Kinds::x: return isDecl;
 	bool IsDecl() const {

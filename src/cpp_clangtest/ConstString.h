@@ -181,7 +181,7 @@ public:
 	bool Owned() const  noexcept {
 		return _owned;
 	}
-	bool Equals(const Self& c) const {
+	bool Equals(const Self& c) const noexcept {
 		auto isNull1 = !_string;
 		auto isNull2 = !c._string;
 		if (isNull1 && isNull2) {
@@ -195,7 +195,7 @@ public:
 		return memcmp(_string, c._string, sizeof(Char) * _length) == 0;
 	}
 
-	bool operator==(const Self& c) const {
+	bool operator==(const Self& c) const noexcept {
 		return Equals(c);
 	}
 
@@ -263,9 +263,13 @@ namespace std {
 		}
 	};
 
+	template<class Char, class Base> struct hash<ConstString<Char, Base>*> : ConstStringPtrHasher<ConstString<Char, Base>*> {};
+	template<class Char, class Base> struct hash<const ConstString<Char, Base>*> : ConstStringPtrHasher<const ConstString<Char, Base>*> {};
 	template<class Char, class Base> struct hash<std::unique_ptr<ConstString<Char, Base>>> : ConstStringPtrHasher<std::unique_ptr<ConstString<Char, Base>>> {};
-	template<class Char, class Base> struct equal_to<std::unique_ptr<ConstString<Char, Base>>> : ConstStringPtrEquals<std::unique_ptr<ConstString<Char, Base>>> {};
 	template<class Char, class Base> struct hash<std::shared_ptr<ConstString<Char, Base>>> : ConstStringPtrHasher<std::shared_ptr<ConstString<Char, Base>>> {};
+	template<class Char, class Base> struct equal_to<ConstString<Char, Base>*> : ConstStringPtrEquals<ConstString<Char, Base>*> {};
+	template<class Char, class Base> struct equal_to<const ConstString<Char, Base>*> : ConstStringPtrEquals<const ConstString<Char, Base>*> {};
+	template<class Char, class Base> struct equal_to<std::unique_ptr<ConstString<Char, Base>>> : ConstStringPtrEquals<std::unique_ptr<ConstString<Char, Base>>> {};
 	template<class Char, class Base> struct equal_to<std::shared_ptr<ConstString<Char, Base>>> : ConstStringPtrEquals<std::shared_ptr<ConstString<Char, Base>>> {};
 
 	template<class Char, class Base> std::ostream& operator<<(std::ostream& os, const ConstString<Char, Base>& value) {
